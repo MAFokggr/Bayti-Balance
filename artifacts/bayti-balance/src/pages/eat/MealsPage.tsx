@@ -52,7 +52,7 @@ export function MealsPage({ ctx }: { ctx: EatCtx }) {
     <h2 className="eat-h2"><Heart size={17} />Family favourites</h2>
     {ctx.eat.data.favorites.length === 0 ? <Empty icon={<Heart />} id="favorites">Save a meal with your adjustments and it lands here, exactly as you tuned it.</Empty>
       : ctx.eat.data.favorites.map((f) => <div key={favoriteKey(f)} className="eat-card eat-between" data-testid={`card-favorite-${f.id}`}>
-        <div><b>{f.name}</b><div className="eat-sub" style={{ fontSize: 12 }}>{f.changes.length ? f.changes.join(', ') : 'Original recipe'} · {f.prepMinutes} min · {money(f.cost)}</div></div>
+        <button className="eat-fav-open" onClick={() => { if (fb.run(() => ctx.eat.openFavorite(favoriteKey(f)), `Reopened ${f.name} with its saved adjustments.`)) go(`/eat/meal?id=${encodeURIComponent(f.id)}`); }} aria-label={`Open ${f.name} with saved adjustments`} data-testid={`button-open-favorite-${f.id}`}><b>{f.name}</b><div className="eat-sub" style={{ fontSize: 12 }}>{f.changes.length ? f.changes.join(', ') : 'Original recipe'} · {f.prepMinutes} min · {money(f.cost)}</div></button>
         <button className="sl-icon-btn" onClick={() => fb.run(() => ctx.eat.removeFavorite(favoriteKey(f)), `${f.name} removed from favourites.`)} aria-label={`Remove ${f.name} from favourites`} data-testid={`button-remove-favorite-${f.id}`}><Trash2 size={15} /></button>
       </div>)}
     <Feedback msg={fb.msg} id="favorites" />

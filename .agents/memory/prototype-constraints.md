@@ -24,3 +24,15 @@ Eat must not use an external AI API or require an API key. Photo recognition, in
 **Why:** The user explicitly requires this limit for the Eat prototype.
 
 **How to apply:** Keep uploaded photos as local previews, disclose canned detection and cooking tips, and use illustrated placeholders when the supplied sample photos are absent.
+
+Progress must display each family member's points as a family competition. This replaces the earlier no-rankings instruction for Progress.
+
+**Why:** The user explicitly requested a points-based family competition.
+
+**How to apply:** Include every member, preserve earned balances, give equal totals equal ranks, and keep private check-ins out of the competition.
+
+Competition points reward participation, not water volume, sleep duration or a health measurement.
+
+**Why:** Members have different ages and needs, and this remains an educational wellbeing prototype rather than a medical or fitness assessment.
+
+**How to apply:** Reward completed activities without encouraging excess drinking or longer sleep to improve a rank; explain the earning rules visibly.

@@ -8,6 +8,7 @@ import {
   validateLunchbox, validatePantryItem, waterRange,
 } from '@/lib/eat-data';
 import { dayKey } from '@/lib/family-data';
+import { awardId } from '@/lib/family-points';
 
 function read() {
   try {
@@ -100,6 +101,12 @@ export function useEatStore(family: FamilyStore, weather: WeatherMode) {
     guard(); setData((old) => ({ ...old, favorites: old.favorites.filter((item) => favoriteKey(item) !== key) }));
     family.setData((old) => ({ ...old, savedMeals: old.savedMeals.filter((id) => id !== `eat:${key}`) }));
   };
+  const openFavorite = (key: string) => {
+    guard();
+    const meal = data.favorites.find((saved) => favoriteKey(saved) === key);
+    if (!meal) throw new Error('This favourite is no longer saved.');
+    setData((old) => ({ ...old, selectedMealId: meal.id, adjustments: { ...old.adjustments, [meal.id]: [...meal.changes] } }));
+  };
   const saveLeftover = (meal: Meal) => {
     checkMeal(meal); const key = favoriteKey(meal);
     setData((old) => ({ ...old, savedLeftovers: [...old.savedLeftovers.filter((item) => favoriteKey(item) !== key), structuredClone(meal)] }));
@@ -121,7 +128,14 @@ export function useEatStore(family: FamilyStore, weather: WeatherMode) {
   const advanceCooking = (action: 'done' | 'skip' | 'repeat') => {
     guard(); if (!cookingSession) throw new Error('Choose a recipe and start cooking first.');
     checkMeal(cookingSession.meal);
-    setData((old) => ({ ...old, cooking: { ...old.cooking, [memberId]: advanceCookingSession(old.cooking[memberId], action) } }));
+    const next = advanceCookingSession(cookingSession, action);
+    if (!cookingSession.completed && next.completed && next.meal.steps.every((step) => next.statuses[step.id] === 'done')) family.awardActivity('meal', memberId);
+    setData((old) => ({ ...old, cooking: { ...old.cooking, [memberId]: next } }));
+  };
+  const revisitCookingStep = (index: number) => {
+    guard();
+    if (!cookingSession || !Number.isInteger(index) || index < 0 || index >= cookingSession.meal.steps.length) throw new Error('Choose an existing cooking step.');
+    setData((old) => ({ ...old, cooking: { ...old.cooking, [memberId]: { ...old.cooking[memberId], stepIndex: index, completed: false } } }));
   };
   const logWater = (id: string, ml: number) => {
     guard();
@@ -132,7 +146,8 @@ export function useEatStore(family: FamilyStore, weather: WeatherMode) {
   return {
     data, storageError, retryStorage, selectedMeal, setSelectedMeal, setAdjustments, confirmDetection,
     addIngredient, updateIngredient, removeIngredient, saveFavorite, removeFavorite, saveLeftover,
-    saveLunchbox, startCooking, cookingSession, advanceCooking, logWater,
+    saveLunchbox, startCooking, cookingSession, advanceCooking, revisitCookingStep, logWater, openFavorite,
+    cookingPointsEarned: family.data.activityLog.some((entry) => entry.id === awardId('meal', memberId)),
     hydrationIds: (data.hydrationMilestones[day] ?? []).filter((id) => family.data.members.some((member) => member.id === id)),
   };
 }

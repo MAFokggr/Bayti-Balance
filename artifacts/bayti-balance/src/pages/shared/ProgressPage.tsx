@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'wouter';
-import { Activity, ArrowRight, Award, CalendarDays, Droplets, Flag, Footprints, HandHeart, Lightbulb, Medal, Sparkles, Star, TrendingUp, Trophy, Users } from 'lucide-react';
+import { Activity, ArrowRight, ChefHat, MoonStar, Award, CalendarDays, Droplets, Flag, Footprints, HandHeart, Lightbulb, Medal, Sparkles, Star, TrendingUp, Trophy, Users } from 'lucide-react';
 import type { FamilyStore } from '@/hooks/use-family-store';
+import { familyLeaderboard } from '@/lib/family-points';
 import { dateOffset, dayKey, getComparisons, memberProgress, recognitionFor, streakFor, sumReps, waterFor, weeklyProgress } from '@/lib/family-data';
 import { Demo, MemberAvatar, Ring, SafetyNote } from '@/components/shared/kit';
 
@@ -35,20 +36,30 @@ export default function ProgressPage({ store }: { store: FamilyStore }) {
     { label: 'Goal met', on: week.done >= week.target && week.target > 0, Icon: Trophy, bg: '#E9C98B' },
   ];
   const fmt = (n: number) => n.toLocaleString('en-US');
+  const board = familyLeaderboard(data);
+  const familyTotal = board.reduce((t, r) => t + r.points, 0);
+  const leaders = board.filter((r) => r.rank === 1 && r.points > 0);
 
   return <main className="sl-page motion-in">
-    <div className="eyebrow">{data.family} · together</div>
-    <h1 className="title">Family<br />progress.</h1>
-    <section className="sl-card" data-testid="card-move-points" style={{ marginBottom: 14 }}>
-      <div className="eyebrow">Your Move points · {current.name}</div>
-      <strong style={{ fontSize: 30 }}>{current.points || 0}</strong>
-      <p className="sl-sub">Five encouragement points for each finished Move session. These are not a health or fitness score.</p>
-      <Link href="/move" className="sl-btn sl-btn-soft sl-btn-sm">Explore Move <ArrowRight size={14} /></Link>
+    <div className="eyebrow">{data.family} · friendly competition</div>
+    <h1 className="title">Family<br />points.</h1>
+    <section className="sl-card sl-card-navy" data-testid="card-leaderboard" aria-labelledby="board-title">
+      <div className="sl-between"><h2 id="board-title" className="sl-row" style={{ gap: 8, margin: 0, fontSize: 18, fontWeight: 900 }}><Trophy size={19} color="#F6D477" />Family points board</h2><span className="eyebrow" data-testid="text-family-total">Family total {fmt(familyTotal)}</span></div>
+      <p className="sl-sub" style={{ marginTop: 4 }}>{familyTotal === 0 ? 'Everyone starts at zero. Finish a Move session, a full recipe or a wind-down to score first.' : leaders.length > 1 ? `Tied at the top: ${leaders.map((r) => r.member.name).join(' and ')}.` : `${leaders[0]?.member.name} leads for now. Friendly competition only.`}</p>
+      <ol style={{ listStyle: 'none', padding: 0, margin: '12px 0 0', display: 'grid', gap: 7 }}>{board.map((r) => { const me = r.member.id === current.id; return <li key={r.member.id} className="sl-row" aria-current={me ? 'true' : undefined} data-testid={`row-leader-${r.member.id}`} style={{ gap: 10, padding: '9px 11px', borderRadius: 16, background: me ? '#FBF8F1' : '#ffffff14', color: me ? '#17264D' : '#FBF8F1', border: `1.5px solid ${me ? '#F6D477' : 'transparent'}` }}>
+        <strong style={{ width: 26, fontSize: 15 }} aria-label={`Rank ${r.rank}`}>{`#${r.rank}`}</strong><MemberAvatar member={r.member} size={32} /><span style={{ flex: 1, fontWeight: 800 }}>{r.member.name}{me && <small style={{ marginLeft: 6, fontSize: 11 }}>you</small>}</span><strong data-testid={`text-points-${r.member.id}`}>{fmt(r.points)} <small style={{ fontSize: 11 }}>pts</small></strong></li>; })}</ol>
+      <div style={{ display: 'grid', gap: 6, marginTop: 14, fontSize: 12.5, fontWeight: 700 }} data-testid="text-earn-rules">
+        <span className="sl-row" style={{ gap: 6 }}><Activity size={14} />Move: 5 per finished session</span>
+        <span className="sl-row" style={{ gap: 6 }}><ChefHat size={14} />Eat: 5 for a fully completed recipe, once a day</span>
+        <span className="sl-row" style={{ gap: 6 }}><MoonStar size={14} />Recover: 5 for a finished wind-down, once a day</span>
+        <span className="sl-sub" style={{ marginTop: 2 }}>Water, photos and favourites never earn points. Points are for fun, not a health or fitness score.</span>
+      </div>
+      <div className="sl-row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}><Link href="/move" className="sl-btn sl-btn-soft sl-btn-sm">Move <ArrowRight size={14} /></Link><Link href="/eat/cooking" className="sl-btn sl-btn-soft sl-btn-sm">Cook <ArrowRight size={14} /></Link><Link href="/recover" className="sl-btn sl-btn-soft sl-btn-sm">Wind down <ArrowRight size={14} /></Link></div>
     </section>
 
     <section className="sl-card" data-testid="card-family-ring"><div className="sl-row" style={{ gap: 16 }}>
       <Ring percent={familyPct} size={104} stroke={11} color="#4877E8" label="Family progress today"><span style={{ fontSize: 20 }}>{Math.round(familyPct)}%</span></Ring>
-      <div><strong style={{ fontSize: 17 }}>Shared family ring</strong><p className="sl-sub">Every action fills the same ring. No one is ranked.</p></div>
+      <div><strong style={{ fontSize: 17 }}>Shared family ring</strong><p className="sl-sub">Every action fills the same shared ring, alongside the points board.</p></div>
     </div></section>
 
     <h2 className="sl-h2"><Flag size={18} />Weekly goal path</h2>

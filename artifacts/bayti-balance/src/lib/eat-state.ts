@@ -67,6 +67,6 @@ export function advanceCookingSession(session: CookingSession, action: 'done' | 
   if (action === 'repeat') { delete statuses[step.id]; return { ...session, completed: false, statuses }; }
   if (session.completed) return session;
   statuses[step.id] = action === 'skip' ? 'skipped' : 'done';
-  const completed = session.stepIndex >= session.meal.steps.length - 1;
-  return { ...session, statuses, stepIndex: completed ? session.stepIndex : session.stepIndex + 1, completed };
+  const completed = session.stepIndex >= session.meal.steps.length - 1 || session.meal.steps.every((item) => statuses[item.id] === 'done');
+  return { ...session, statuses, stepIndex: completed ? session.meal.steps.length - 1 : session.stepIndex + 1, completed };
 }

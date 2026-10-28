@@ -3,9 +3,9 @@
 .eat-head { padding:6px 20px 0; }
 .eat-title { font-size:30px; font-weight:900; letter-spacing:-.05em; line-height:1.05; margin:6px 0 4px; }
 .eat-title em { font-style:normal; background:linear-gradient(transparent 60%, var(--eat-tq-soft) 60%); }
-.eat-tabs { display:flex; gap:6px; overflow-x:auto; padding:14px 20px 4px; scrollbar-width:none; position:sticky; top:0; z-index:5; background:linear-gradient(var(--cream) 80%, transparent); }
+.eat-tabs { display:flex; flex-wrap:wrap; gap:6px; padding:14px 20px 4px; scrollbar-width:none; position:sticky; top:0; z-index:5; background:linear-gradient(var(--cream) 80%, transparent); }
 .eat-tabs::-webkit-scrollbar { display:none; }
-.eat-tab { flex:0 0 auto; display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:99px; border:1.5px solid #d9d2c3; font-size:12px; font-weight:900; color:var(--navy); background:var(--paper); transition:background .18s, border-color .18s; }
+.eat-tab { flex:1 1 auto; justify-content:center; min-height:40px; display:inline-flex; align-items:center; gap:6px; padding:8px 13px; border-radius:99px; border:1.5px solid #d9d2c3; font-size:12px; font-weight:900; color:var(--navy); background:var(--paper); transition:background .18s, border-color .18s; }
 .eat-tab svg { width:15px; height:15px; }
 .eat-tab.on { background:var(--navy); color:var(--cream); border-color:var(--navy); }
 .eat-tab.on svg { color:var(--eat-tq); }
@@ -137,3 +137,11 @@
 .eat-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 @media (max-width:360px) { .eat-body, .eat-head { padding-left:15px; padding-right:15px; } .eat-stats { grid-template-columns:1fr 1fr; } }
 @media (prefers-reduced-motion:reduce) { .eat *, .eat *::before { animation:none!important; transition:none!important; } }
+
+.eat-pts { display:flex; gap:8px; align-items:flex-start; padding:10px 12px; border-radius:14px; font-size:12.5px; font-weight:800; line-height:1.45; background:#fff7dc; border:1.5px solid #e8c27a; color:#5e3e00; }
+.eat-pts.won { background:var(--navy); color:var(--cream); border-color:var(--navy); animation:eat-flash .5s both; }
+.eat-pts svg { flex:0 0 auto; width:16px; height:16px; }
+.eat-revisit { display:flex; flex-wrap:wrap; gap:6px; }
+.eat-revisit button { min-height:40px; border:1.5px solid #e8c27a; background:#fffaeb; color:var(--navy); border-radius:12px; padding:6px 11px; font-size:12px; font-weight:900; }
+.eat-revisit button[aria-current=step] { border-color:var(--navy); }
+.eat-fav-open { text-align:left; background:transparent; border:0; color:var(--navy); padding:4px 0; min-height:44px; flex:1; }

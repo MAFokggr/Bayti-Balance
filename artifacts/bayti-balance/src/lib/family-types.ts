@@ -72,7 +72,13 @@ export interface FamilyMessage {
   demo: boolean;
 }
 
+export interface RecoveryRecord {
+  sleepHours: number | null;
+  windDown: string[];
+}
+
 export interface FamilyData {
+  recovery?: Record<string, RecoveryRecord>;
   family: string;
   activeMember: string;
   members: Member[];

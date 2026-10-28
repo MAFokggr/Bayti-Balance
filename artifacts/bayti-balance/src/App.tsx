@@ -15,7 +15,8 @@ import WhoPage from '@/pages/shared/WhoPage';
 import HomePage from '@/pages/shared/HomePage';
 import ProgressPage from '@/pages/shared/ProgressPage';
 import AboutPage from '@/pages/shared/AboutPage';
-import { CameraPage, ShellPage } from '@/pages/SectionShells';
+import { CameraPage } from '@/pages/SectionShells';
+import RecoverPage from '@/pages/recover/RecoverPage';
 import MoveSection from '@/pages/move/MoveSection';
 import EatSection from '@/pages/eat/EatSection';
 import './shared-layer.css';
@@ -52,7 +53,7 @@ function App() {
         <Route path="/camera-test"><CameraPage current={current} updateRep={store.updateReps} initialCounts={initialCounts} /></Route>
         <Route path="/move/:section?"><MoveSection store={store} /></Route>
         <Route path="/eat/:section?"><EatSection store={store} /></Route>
-        <Route path="/recover"><ShellPage section="recover" current={current} /></Route>
+        <Route path="/recover"><RecoverPage store={store} /></Route>
         <Route path="/progress"><ProgressPage store={store} /></Route>
         <Route path="/about"><AboutPage store={store} /></Route>
         <Route component={NotFound} />

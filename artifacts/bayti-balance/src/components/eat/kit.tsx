@@ -18,7 +18,7 @@ export function EatTabs() {
   const activeFor = (href: string) => href === '/eat'
     ? ['/eat', '/eat/meal', '/eat/lunchbox', '/eat/grocery'].includes(location) : location === href;
   return <nav className="eat-tabs" aria-label="Eat sections">
-    {TABS.map(([href, label, I]) => <Link key={href} href={href} className={`eat-tab ${activeFor(href) ? 'on' : ''}`} aria-current={activeFor(href) ? 'page' : undefined} data-testid={`tab-eat-${label.toLowerCase().replace(' ', '-')}`}><I />{label}</Link>)}
+    {TABS.map(([href, label, I]) => <Link key={href} href={href} className={`eat-tab ${activeFor(href) ? 'on' : ''}`} aria-current={activeFor(href) ? 'page' : undefined} data-testid={`tab-eat-${label.toLowerCase().replaceAll(' ', '-')}`}><I />{label}</Link>)}
   </nav>;
 }
 

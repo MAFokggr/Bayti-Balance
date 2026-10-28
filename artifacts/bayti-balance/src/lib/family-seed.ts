@@ -106,6 +106,7 @@ export function normalizeFamilyData(value: unknown): FamilyData {
       ...createMember(index), ...member,
       foods: strings(member.foods), allergies: strings(member.allergies), restrictions: strings(member.restrictions),
       privateCheckins: strings(member.privateCheckins), sleepTarget: bounded(member.sleepTarget > 0 ? member.sleepTarget : undefined, 8, 5, 12),
+      points: Math.max(0, Math.floor(Number.isFinite(member.points) ? member.points : 0)),
       waterTarget: bounded(member.waterTarget, 1500, 0, 5000) || 1500,
       energy: ['low', 'balanced', 'bright'].includes(member.energy) ? member.energy : 'balanced',
     } as Member;
@@ -147,8 +148,20 @@ export function normalizeFamilyData(value: unknown): FamilyData {
   const timeline = raw.planDate === dayKey() && Array.isArray(raw.timeline) && raw.timeline.length &&
     raw.timeline.every((item: PlanItem) => item && typeof item.id === 'string' && Array.isArray(item.completedBy) && item.variants)
     ? raw.timeline : buildFamilyPlan(members, settings, weatherOverride === 'live' ? 'comfortable' : weatherOverride as WeatherMode);
+  const recovery: NonNullable<FamilyData['recovery']> = {};
+  if (raw.recovery !== undefined) {
+    if (!raw.recovery || typeof raw.recovery !== 'object' || Array.isArray(raw.recovery)) throw new Error('Saved recovery data could not be read. It has not been overwritten.');
+    for (const [key, entry] of Object.entries(raw.recovery)) {
+      if (!entry || typeof entry !== 'object' || !Array.isArray(entry.windDown) ||
+          entry.windDown.some((task) => !['screens-away', 'settle-space', 'gentle-stretch'].includes(task)) ||
+          (entry.sleepHours !== null && (!Number.isFinite(entry.sleepHours) || entry.sleepHours < 0 || entry.sleepHours > 24 || !Number.isInteger(entry.sleepHours * 4)))) {
+        throw new Error('A saved recovery entry could not be read. It has not been overwritten.');
+      }
+      recovery[key] = { sleepHours: entry.sleepHours, windDown: [...new Set(entry.windDown)] };
+    }
+  }
   return {
-    ...base, ...raw, members, familySettings: settings, reps, water, activityLog, timeline,
+    ...base, ...raw, members, familySettings: settings, reps, water, activityLog, timeline, recovery,
     family: typeof raw.family === 'string' && raw.family.trim() ? raw.family : base.family,
     activeMember: members.some((member) => member.id === raw.activeMember) ? raw.activeMember! : members[0].id,
     weatherOverride, planDate: dayKey(),

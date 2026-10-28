@@ -6,6 +6,8 @@ import {
 import type { AdaptationId, FamilyData, FamilyDraft, FamilyMessage, Member, WeatherMode } from '@/lib/family-types';
 import { MOVE_STORAGE_KEY } from '@/lib/move-state';
 import { EAT_STORAGE_KEY } from '@/lib/eat-state';
+import { awardWellbeing, finishRecovery as finishRecoveryData, updateRecovery as updateRecoveryData, type WellbeingAward } from '@/lib/family-points';
+import type { RecoveryRecord } from '@/lib/family-types';
 
 function loadStoredFamily() {
   try {
@@ -134,10 +136,25 @@ export function useFamilyStore() {
     ...old, members: old.members.map((member) => member.id === memberId ? { ...member, energy } : member),
   })), []);
 
+  const awardActivity = useCallback((kind: WellbeingAward, memberId: string) => {
+    if (blockedReadRef.current) throw new Error('Retry saved family storage before earning points.');
+    setData((old) => awardWellbeing(old, kind, memberId));
+  }, []);
+  const updateRecovery = useCallback((memberId: string, patch: Partial<RecoveryRecord>) => {
+    if (blockedReadRef.current) throw new Error('Retry saved family storage before saving recovery.');
+    updateRecoveryData(data, memberId, patch);
+    setData((old) => updateRecoveryData(old, memberId, patch));
+  }, [data]);
+  const finishRecovery = useCallback((memberId: string) => {
+    if (blockedReadRef.current) throw new Error('Retry saved family storage before earning points.');
+    finishRecoveryData(data, memberId);
+    setData((old) => finishRecoveryData(old, memberId));
+  }, [data]);
+
   return {
     data, current, setData, storageError, retryStorage, selectMember, loadSample, resetDemo, saveFamily,
     updateReps, addWater, completeActivity, adaptPlan, setWeatherOverride, setAvailableMinutes,
-    setWeeklyGoal, sendMessage, setEnergy,
+    setWeeklyGoal, sendMessage, setEnergy, awardActivity, updateRecovery, finishRecovery,
   };
 }
 

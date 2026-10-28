@@ -1,0 +1,70 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createInitialData, normalizeFamilyData } from './family-data';
+import { awardId, awardWellbeing, familyLeaderboard, finishRecovery, recoveryFor, updateRecovery, WIND_DOWN_TASKS } from './family-points';
+import { advanceCookingSession, createEatData, MEALS } from './eat-data';
+
+test('leaderboard includes everyone, retains family order in ties and uses equal competition ranks', () => {
+  const data = createInitialData();
+  data.members.forEach((member, i) => { member.points = [5, 15, 15, 0, 5][i]; });
+  const rows = familyLeaderboard(data);
+  assert.deepEqual(rows.map((row) => row.points), [15, 15, 5, 5, 0]);
+  assert.deepEqual(rows.map((row) => row.rank), [1, 1, 3, 3, 5]);
+  assert.equal(rows[0].member.id, data.members[1].id);
+  assert.equal(rows[1].member.id, data.members[2].id);
+  assert.equal(rows.length, data.members.length);
+  assert.ok(familyLeaderboard(createInitialData()).every((row) => row.points === 0 && row.rank === 1));
+});
+test('Eat and Recover points are once per member, kind and date, preserving prior Move points and water/reps', () => {
+  const data = createInitialData();
+  data.members.find((member) => member.id === 'salem')!.points = 10;
+  data.reps['salem:2026-10-28:jump'] = 9;
+  data.water['noura:2026-10-28'] = 450;
+  const once = awardWellbeing(data, 'meal', 'salem', '2026-10-28');
+  assert.equal(once.members.find((member) => member.id === 'salem')!.points, 15);
+  assert.equal(awardWellbeing(once, 'meal', 'salem', '2026-10-28'), once);
+  const both = awardWellbeing(once, 'recover', 'salem', '2026-10-28');
+  assert.equal(both.members.find((member) => member.id === 'salem')!.points, 20);
+  assert.equal(both.reps['salem:2026-10-28:jump'], 9);
+  assert.equal(both.water['noura:2026-10-28'], 450);
+  assert.equal(awardWellbeing(both, 'meal', 'missing', '2026-10-28'), both);
+  const next = awardWellbeing(both, 'meal', 'salem', '2026-10-29');
+  assert.equal(next.members.find((member) => member.id === 'salem')!.points, 25);
+  assert.equal(next.activityLog.filter((entry) => entry.id === awardId('meal', 'salem', '2026-10-28')).length, 1);
+});
+test('sleep is manual, member/day scoped and never awards points for longer sleep', () => {
+  const data = createInitialData();
+  const saved = updateRecovery(data, 'noura', { sleepHours: 8.5 }, '2026-10-28');
+  assert.equal(recoveryFor(saved, 'noura', '2026-10-28').sleepHours, 8.5);
+  assert.equal(recoveryFor(saved, 'salem', '2026-10-28').sleepHours, null);
+  assert.equal(recoveryFor(saved, 'noura', '2026-10-29').sleepHours, null);
+  assert.equal(saved.members.find((member) => member.id === 'noura')!.points, 0);
+  for (const hours of [-1, 25, Number.NaN, 7.3]) assert.throws(() => updateRecovery(data, 'noura', { sleepHours: hours }));
+});
+test('wind-down requires all steps, is retry-safe, survives reload and keeps check-ins private', () => {
+  let data = createInitialData();
+  data.members[0].privateCheckins = ['private reflection'];
+  assert.throws(() => finishRecovery(data, 'noura', '2026-10-28'));
+  data = updateRecovery(data, 'noura', { windDown: WIND_DOWN_TASKS.map((task) => task.id), sleepHours: 9 }, '2026-10-28');
+  const finished = finishRecovery(data, 'noura', '2026-10-28');
+  assert.equal(finished.members.find((member) => member.id === 'noura')!.points, 5);
+  assert.equal(finishRecovery(finished, 'noura', '2026-10-28'), finished);
+  const restored = normalizeFamilyData(JSON.parse(JSON.stringify(finished)));
+  assert.equal(recoveryFor(restored, 'noura', '2026-10-28').sleepHours, 9);
+  assert.deepEqual(restored.members[0].privateCheckins, ['private reflection']);
+  assert.ok(!restored.activityLog.some((entry) => entry.label.includes('private reflection')));
+  assert.throws(() => normalizeFamilyData({ ...finished, recovery: { invalid: { sleepHours: 26, windDown: [] } } }));
+});
+test('a skipped cooking step stays unearned until revisited and completed; frozen recipe stays intact', () => {
+  const meal = structuredClone(MEALS[0]);
+  let session = { id: 'example', memberId: 'salem', meal, stepIndex: 0, statuses: {}, completed: false };
+  session = advanceCookingSession(session, 'skip');
+  while (!session.completed) session = advanceCookingSession(session, 'done');
+  assert.ok(!session.meal.steps.every((step) => session.statuses[step.id as keyof typeof session.statuses] === 'done'));
+  session = { ...session, completed: false, stepIndex: 0 };
+  session = advanceCookingSession(session, 'done');
+  assert.ok(session.completed);
+  assert.ok(session.meal.steps.every((step) => session.statuses[step.id as keyof typeof session.statuses] === 'done'));
+  assert.deepEqual(session.meal, meal);
+  assert.equal(createEatData().favorites.length, 0);
+});

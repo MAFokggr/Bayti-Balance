@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'wouter';
-import { AlertTriangle, Bot, Check, ChefHat, Pause, Play, RotateCcw, SkipForward, Users } from 'lucide-react';
+import { AlertTriangle, Award, Bot, Check, ChefHat, Pause, Play, RotateCcw, SkipForward, Users } from 'lucide-react';
 import { Demo } from '@/components/shared/kit';
 import { cookingTip } from '@/lib/eat-data';
 import type { CookingStep } from '@/lib/eat-types';
@@ -34,13 +34,19 @@ export function CookingPage({ ctx }: { ctx: EatCtx }) {
   const steps = s.meal.steps;
   const step = steps[Math.min(s.stepIndex, steps.length - 1)];
   const mine = MY_ROLE[ctx.member.ageGroup];
+  const skipped = steps.filter((x) => s.statuses[x.id] === 'skipped');
+  const doneCount = steps.filter((x) => s.statuses[x.id] === 'done').length;
   const skippedHeat = steps.filter((x) => s.statuses[x.id] === 'skipped' && HEAT.test(`${x.title} ${x.instruction}`));
   const act = (a: 'done' | 'skip' | 'repeat') => { setTip(null); if (fb.run(() => ctx.eat.advanceCooking(a), a === 'done' ? 'Step done.' : a === 'skip' ? 'Step skipped.' : 'Step reset — take it again.') && a === 'repeat') setRepeatKey((key) => key + 1); };
 
   return <div className="eat-body">
     <div className="eat-row"><MealArt name={s.meal.name} ingredients={s.meal.ingredients.map((i) => i.name)} className="" /><div><b data-testid="text-cooking-meal">{s.meal.name}</b><p className="eat-sub">Cooking with {ctx.member.name}{s.meal.changes.length ? ` · ${s.meal.changes.join(', ')}` : ''}</p></div></div>
     <div className="eat-progress-dots" aria-label={`Step ${s.stepIndex + 1} of ${steps.length}`}>{steps.map((x, i) => <i key={x.id} className={s.statuses[x.id] === 'done' ? 'done' : s.statuses[x.id] === 'skipped' ? 'skipped' : i === s.stepIndex ? 'now' : ''} />)}</div>
-    {s.completed && <div className="eat-card eat-card-tq" data-testid="status-cooking-complete"><b>All steps finished.</b><p className="eat-sub">{skippedHeat.length ? '' : 'Nicely done, family kitchen.'}</p></div>}
+    {s.completed && <div className="eat-card eat-card-tq" data-testid="status-cooking-complete"><b>{skipped.length ? 'Reached the end, with skipped steps.' : 'Every step marked done.'}</b><p className="eat-sub">{skipped.length ? 'Revisit the skipped steps below to complete the recipe.' : 'Nicely done, family kitchen. Check food is cooked through before serving.'}</p></div>}
+    <div className={`eat-pts ${ctx.eat.cookingPointsEarned ? 'won' : ''}`} role="status" data-testid="status-cooking-points"><Award />{ctx.eat.cookingPointsEarned ? <span>+5 family points earned today for {ctx.member.name}. More recipes today will not add extra points.</span>
+      : s.completed && skipped.length ? <span>No points yet: {skipped.length} skipped {skipped.length === 1 ? 'step' : 'steps'}. Skips do not count as completion.</span>
+      : <span>Mark all {steps.length} steps Done to earn 5 family points (once per day). {doneCount} of {steps.length} done.</span>}</div>
+    {skipped.length > 0 && <div className="eat-card" data-testid="card-revisit"><b style={{ fontSize: 13 }}>Revisit a skipped step</b><p className="eat-sub" style={{ marginBottom: 8 }}>Your recipe and adjustments stay as they are.</p><div className="eat-revisit">{skipped.map((x) => { const i = steps.indexOf(x); return <button key={x.id} aria-current={i === s.stepIndex ? 'step' : undefined} onClick={() => { setTip(null); fb.run(() => ctx.eat.revisitCookingStep(i), `Back to step ${i + 1}: ${x.title}.`); }} data-testid={`button-revisit-step-${x.id}`}>Step {i + 1} · {x.title}</button>; })}</div></div>}
     {skippedHeat.length > 0 && <div className="eat-warn" role="alert" data-testid="warning-skipped-heat"><AlertTriangle /><span>A heating step was skipped ({skippedHeat.map((x) => x.title).join(', ')}). We cannot say this food is cooked safely — please repeat it or check it is thoroughly cooked.</span></div>}
     {step && <article className="eat-step" key={step.id} data-testid={`card-step-${step.id}`}>
       <div className="eat-between"><span className="eat-step-num">{s.stepIndex + 1}<small style={{ fontSize: 15, color: '#657789' }}>/{steps.length}</small></span><span className={`eat-role eat-role-${step.role}`}><Users size={12} />{ROLE_LABEL[step.role]}</span></div>
