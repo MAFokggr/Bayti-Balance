@@ -17,6 +17,7 @@ import ProgressPage from '@/pages/shared/ProgressPage';
 import AboutPage from '@/pages/shared/AboutPage';
 import { CameraPage, ShellPage } from '@/pages/SectionShells';
 import MoveSection from '@/pages/move/MoveSection';
+import EatSection from '@/pages/eat/EatSection';
 import './shared-layer.css';
 
 const queryClient = new QueryClient();
@@ -50,7 +51,7 @@ function App() {
         <Route path="/home"><HomePage store={store} /></Route>
         <Route path="/camera-test"><CameraPage current={current} updateRep={store.updateReps} initialCounts={initialCounts} /></Route>
         <Route path="/move/:section?"><MoveSection store={store} /></Route>
-        <Route path="/eat"><ShellPage section="eat" current={current} /></Route>
+        <Route path="/eat/:section?"><EatSection store={store} /></Route>
         <Route path="/recover"><ShellPage section="recover" current={current} /></Route>
         <Route path="/progress"><ProgressPage store={store} /></Route>
         <Route path="/about"><AboutPage store={store} /></Route>
@@ -63,7 +64,7 @@ function App() {
       </button>
       <nav className="bottom-nav" aria-label="Main navigation">
         {NAV.map(([href, label, I]) => {
-          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/')));
+          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/'))) || (href === '/eat' && location.startsWith('/eat/'));
           return <Link key={href} href={href} className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-testid={`nav-${label.toLowerCase()}`}><I /><span>{label}</span></Link>;
         })}
       </nav>

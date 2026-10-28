@@ -18,3 +18,9 @@ Parent-and-child camera games use separate, single-person turns, never simultane
 **Why:** The user explicitly required these limits for Move's parent/child challenge and jumping games.
 
 **How to apply:** Keep camera ownership tied to the current turn's member, close it at handoff, and preserve these limits when extending family games or reporting measurements.
+
+Eat must not use an external AI API or require an API key. Photo recognition, including a user's own uploaded photo, is a clearly labeled Demo with sample results chosen by photo type.
+
+**Why:** The user explicitly requires this limit for the Eat prototype.
+
+**How to apply:** Keep uploaded photos as local previews, disclose canned detection and cooking tips, and use illustrated placeholders when the supplied sample photos are absent.

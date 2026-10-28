@@ -129,17 +129,18 @@ export function recordReps(data: FamilyData, exercise: string, reps: number, mem
   return { ...data, reps: { ...data.reps, [key]: count }, activityLog };
 }
 
-export function recordWater(data: FamilyData, ml: number): FamilyData {
+export function recordWater(data: FamilyData, ml: number, memberId = data.activeMember): FamilyData {
   if (!Number.isFinite(ml) || ml <= 0) return data;
+  if (!data.members.some((member) => member.id === memberId)) return data;
   const day = dayKey();
-  const key = `${data.activeMember}:${day}`;
+  const key = `${memberId}:${day}`;
   const amount = (data.water[key] ?? 0) + Math.round(ml);
   const id = `water:${key}`;
   return {
     ...data, water: { ...data.water, [key]: amount },
-    members: data.members.map((member) => member.id === data.activeMember ? { ...member, waterMl: amount } : member),
+    members: data.members.map((member) => member.id === memberId ? { ...member, waterMl: amount } : member),
     activityLog: [...data.activityLog.filter((log) => log.id !== id), {
-      id, day, memberId: data.activeMember, kind: 'water', label: 'Water logged', amount, demo: false,
+      id, day, memberId, kind: 'water', label: 'Water logged', amount, demo: false,
     }],
   };
 }
