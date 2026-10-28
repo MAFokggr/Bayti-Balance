@@ -92,7 +92,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .camera-panel video,.camera-panel canvas { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; transform:scaleX(-1); }
 .camera-panel canvas { z-index:2; }
 .camera-overlay { position:absolute;z-index:3;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;align-items:center; }
+.camera-overlay-left { display:flex;align-items:center;gap:6px;min-width:0; }
 .camera-status { background:#17314dcc; padding:8px 11px; border-radius:99px; font-size:12px;font-weight:900; display:flex;align-items:center;gap:6px; }
+.tracking-chip { display:flex;align-items:center;gap:5px;max-width:124px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:#17314dcc;color:#e8f5ef;padding:8px 9px;border-radius:99px;font-size:10px;font-weight:900; }
+.tracking-dot { width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:#f6d477; }
+.tracking-tracking .tracking-dot { background:#a9d9b8; }
+.tracking-lost .tracking-dot { background:#f59b7a; }
 .camera-bottom { position:absolute;z-index:3;bottom:12px;left:12px;right:12px;display:flex;align-items:flex-end;justify-content:space-between; }
 .rep-count { font-size:42px;line-height:1;font-weight:900; letter-spacing:-.06em; }
 .advice-pill { background:#fffdf1ed;color:#17314d;padding:10px 13px;border-radius:14px;font-weight:900;font-size:13px;max-width:190px;transition:opacity .3s; }
@@ -116,4 +121,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .camera-panel { min-height:420px; }
 }
 @media (max-width:360px) { .page { padding-left:16px;padding-right:16px; } .grid-links { gap:8px; } }
+@media (max-width:360px) { .camera-status { padding:7px 8px;font-size:10px; } .tracking-chip { padding:7px 8px;font-size:9px; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important; } }

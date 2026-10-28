@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Pause, Play, RotateCcw, Square, Timer, UserRound } from 'lucide-react';
 
-export const CAMERA_RULES = {
+const CAMERA_RULES = {
   squatDownKneeAngleDeg: 110,
   squatUpKneeAngleDeg: 160,
   sideStepFraction: 0.12,
@@ -23,7 +23,11 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const generationRef = useRef(0);
   const detectorRef = useRef<any>(null);
+  const filesRef = useRef<any>(null);
+  const detectorDelegateRef = useRef<'GPU' | 'CPU' | null>(null);
+  const cpuFallbackUsedRef = useRef(false);
   const rafRef = useRef<number>(0);
   const frameAtRef = useRef(0);
   const historyRef = useRef<Point[][]>([]);
@@ -34,6 +38,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const calibrationStartedRef = useRef<number | null>(null);
   const centerRef = useRef<number | null>(null);
   const stateRef = useRef(false);
+  const trackingRef = useRef<'searching' | 'tracking' | 'lost'>('searching');
   const [exercise, setExercise] = useState<Exercise>('squat');
   const exerciseRef = useRef<Exercise>('squat');
   exerciseRef.current = exercise;
@@ -41,6 +46,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   onRepRef.current = onRep;
   const [permissionExplained, setPermissionExplained] = useState(false);
   const [state, setState] = useState<'ready'|'loading'|'live'|'paused'|'error'|'demo'>('ready');
+  const [trackingStatus, setTrackingStatus] = useState<'searching' | 'tracking' | 'lost'>('searching');
+  const [delegate, setDelegate] = useState<'GPU' | 'CPU' | null>(null);
   const [error, setError] = useState('');
   const [reps, setReps] = useState(initialCounts.squat ?? initialCount);
   const repsRef = useRef(initialCounts.squat ?? initialCount);
@@ -49,12 +56,21 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const [adviceIndex, setAdviceIndex] = useState(3);
 
   const setMode = (mode: typeof state) => { stateRef.current = mode === 'live'; setState(mode); };
+  const updateTrackingStatus = (value: 'searching' | 'tracking' | 'lost') => {
+    if (trackingRef.current !== value) {
+      trackingRef.current = value;
+      setTrackingStatus(value);
+    }
+  };
   const teardown = useCallback(() => {
+    generationRef.current += 1;
     cancelAnimationFrame(rafRef.current);
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     detectorRef.current?.close?.();
     detectorRef.current = null;
+    filesRef.current = null;
+    detectorDelegateRef.current = null;
   }, []);
   useEffect(() => {
     if (state === 'live' || state === 'demo') {
@@ -104,16 +120,23 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       return Math.abs((radians * 180 / Math.PI + 360) % 360 - 180);
     };
     let ready = false;
-    if (activeExercise === 'squat' && [23,25,27].every(visible)) {
-      const deg = angle(landmarks[23], landmarks[25], landmarks[27]);
-      if (deg < CAMERA_RULES.squatDownKneeAngleDeg) { if (!phaseRef.current.includes('Down')) updatePhase('Down · hold'); }
-      else if (deg > CAMERA_RULES.squatUpKneeAngleDeg && phaseRef.current.includes('Down')) { updatePhase('Stand tall'); ready = true; }
-    } else if (activeExercise === 'arm raise' && [11,12,15,16,23,24].every(visible)) {
-      const shoulder = midpoint(landmarks[11], landmarks[12]);
-      const hip = midpoint(landmarks[23], landmarks[24]);
-      const wrist = midpoint(landmarks[15], landmarks[16]);
-      if (wrist.y < shoulder.y) { if (!phaseRef.current.includes('Raised')) updatePhase('Arms raised'); }
-      else if (wrist.y > hip.y && phaseRef.current.includes('Raised')) { updatePhase('Arms down'); ready = true; }
+    if (activeExercise === 'squat') {
+      const kneeTriples: [number, number, number][] = [[23,25,27],[24,26,28]];
+      const visibleAngles = kneeTriples
+        .filter(([hip, knee, ankle]) => [hip,knee,ankle].every(visible))
+        .map(([hip, knee, ankle]) => angle(landmarks[hip], landmarks[knee], landmarks[ankle]));
+      if (visibleAngles.length) {
+        const deg = visibleAngles.reduce((sum, value) => sum + value, 0) / visibleAngles.length;
+        if (deg < CAMERA_RULES.squatDownKneeAngleDeg) { if (!phaseRef.current.includes('Down')) updatePhase('Down · hold'); }
+        else if (deg > CAMERA_RULES.squatUpKneeAngleDeg && phaseRef.current.includes('Down')) { updatePhase('Stand tall'); ready = true; }
+      }
+    } else if (activeExercise === 'arm raise') {
+      const sides: [number, number, number][] = [[11,15,23],[12,16,24]];
+      const visibleSides = sides.filter(([shoulder,wrist,hip]) => [shoulder,wrist,hip].every(visible));
+      const raised = visibleSides.some(([shoulder,wrist]) => landmarks[wrist].y < landmarks[shoulder].y);
+      const lowered = visibleSides.some(([,wrist,hip]) => landmarks[wrist].y > landmarks[hip].y);
+      if (raised) { if (!phaseRef.current.includes('Raised')) updatePhase('Arms raised'); }
+      else if (lowered && phaseRef.current.includes('Raised')) { updatePhase('Arms down'); ready = true; }
     } else if (activeExercise === 'side step' && [23,24].every(visible)) {
       const x = midpoint(landmarks[23], landmarks[24]).x;
       if (centerRef.current === null) centerRef.current = x;
@@ -172,6 +195,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         if (raw && hasVisiblePose) {
           const wasLost = lostAtRef.current > 0 && Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs;
           lostAtRef.current = 0;
+          updateTrackingStatus('tracking');
           if (wasLost) {
             updatePhase('Ready');
             cooldownRef.current = Date.now();
@@ -191,11 +215,49 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
           analyze(smoothed, videoRef.current.videoWidth, videoRef.current.videoHeight);
         } else {
           if (!lostAtRef.current) lostAtRef.current = Date.now();
-          if (Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs) updatePhase('Step back so we can see you');
+          if (Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs) {
+            updatePhase('Step back so we can see you');
+            updateTrackingStatus('lost');
+          } else if (trackingRef.current !== 'lost') {
+            updateTrackingStatus('searching');
+          }
           historyRef.current = [];
           draw([], videoRef.current.videoWidth, videoRef.current.videoHeight);
         }
       } catch {
+        if (detectorDelegateRef.current === 'GPU' && !cpuFallbackUsedRef.current && filesRef.current) {
+          cpuFallbackUsedRef.current = true;
+          stateRef.current = false;
+          setState('loading');
+          const fallbackGeneration = generationRef.current;
+          const files = filesRef.current;
+          void (async () => {
+            try {
+              detectorRef.current?.close?.();
+              const vision = await import('@mediapipe/tasks-vision') as any;
+              const cpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
+                baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
+                runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
+              });
+              if (generationRef.current !== fallbackGeneration) {
+                cpuDetector.close?.();
+                return;
+              }
+              detectorRef.current = cpuDetector;
+              detectorDelegateRef.current = 'CPU';
+              setDelegate('CPU');
+              updateTrackingStatus('searching');
+              updatePhase('CPU tracking enabled');
+              setMode('live');
+              rafRef.current = requestAnimationFrame(frameLoop);
+            } catch {
+              teardown();
+              setError('GPU tracking stopped and the CPU fallback could not start. Retry, or use Demo Mode.');
+              setMode('error');
+            }
+          })();
+          return;
+        }
         teardown(); setError('The pose model stopped responding. Try again, or use Demo Mode.'); setMode('error'); return;
       }
     }
@@ -203,30 +265,62 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   }, [analyze, draw, teardown]);
 
   const startCamera = async () => {
-    teardown(); setError(''); setMode('loading'); setPermissionExplained(true);
+    teardown(); setDelegate(null); setError(''); setMode('loading'); setPermissionExplained(true);
+    const requestGeneration = ++generationRef.current;
+    const requestIsCurrent = () => generationRef.current === requestGeneration;
+    cpuFallbackUsedRef.current = false;
+    updateTrackingStatus('searching');
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available in this browser. Use a secure connection or try Demo Mode.');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      if (!requestIsCurrent()) {
+        stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        return;
+      }
       streamRef.current = stream;
       if (!videoRef.current) throw new Error('Camera preview could not be opened. Please retry.');
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       const vision = await import('@mediapipe/tasks-vision') as any;
+      if (!requestIsCurrent()) return;
       const files = await vision.FilesetResolver.forVisionTasks('/wasm/');
-      detectorRef.current = await vision.PoseLandmarker.createFromOptions(files, {
-        baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'GPU' },
-        runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
-      }).catch(async () => vision.PoseLandmarker.createFromOptions(files, {
-        baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
-        runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
-      }));
+      if (!requestIsCurrent()) return;
+      filesRef.current = files;
+      try {
+        const gpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
+          baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'GPU' },
+          runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
+        });
+        if (!requestIsCurrent()) {
+          gpuDetector.close?.();
+          return;
+        }
+        detectorRef.current = gpuDetector;
+        detectorDelegateRef.current = 'GPU';
+        setDelegate('GPU');
+      } catch {
+        const cpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
+          baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
+          runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
+        });
+        if (!requestIsCurrent()) {
+          cpuDetector.close?.();
+          return;
+        }
+        detectorRef.current = cpuDetector;
+        detectorDelegateRef.current = 'CPU';
+        cpuFallbackUsedRef.current = true;
+        setDelegate('CPU');
+      }
       frameAtRef.current = performance.now();
       baselineRef.current = null; centerRef.current = null; historyRef.current = [];
       updatePhase('Find a comfortable space');
       setMode('live');
       rafRef.current = requestAnimationFrame(frameLoop);
     } catch (cause) {
+      if (!requestIsCurrent()) return;
       teardown();
+      updateTrackingStatus('searching');
       const name = (cause as { name?: string })?.name;
       const message = name === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access in your browser settings, then retry.' :
         name === 'NotFoundError' ? 'No camera was found on this device. Connect a camera or choose Demo Mode.' :
@@ -235,10 +329,10 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       setError(message); setMode('error');
     }
   };
-  const stop = () => { teardown(); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
+  const stop = () => { teardown(); setDelegate(null); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
   const pause = () => { stateRef.current = false; setMode('paused'); };
   const resume = () => { if (state === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else void startCamera(); };
-  const launchDemo = () => { teardown(); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  const launchDemo = () => { teardown(); setDelegate(null); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
   const reset = () => { changeReps(0); setElapsed(0); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase(state === 'demo' ? 'Demo mode · tap when you complete a rep' : 'Find a comfortable space'); };
   const time = `${Math.floor(elapsed/60).toString().padStart(2,'0')}:${(elapsed%60).toString().padStart(2,'0')}`;
   const active = state === 'live' || state === 'demo';
@@ -262,7 +356,12 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
           </div>
         </div>}
         <div className="camera-overlay">
-          <span className="camera-status"><span style={{width:8,height:8,background:active?'#9de1b6':'#d9c8a5',borderRadius:'50%'}} />{state === 'demo' ? 'Demo mode' : state === 'live' ? 'Live camera' : 'Ready'}</span>
+          <div className="camera-overlay-left">
+            <span className="camera-status"><span style={{width:8,height:8,background:active?'#9de1b6':'#d9c8a5',borderRadius:'50%'}} />{state === 'demo' ? 'Demo mode' : state === 'live' ? 'Live camera' : 'Ready'}</span>
+            {state === 'live' && <span className={`tracking-chip tracking-${trackingStatus}`} aria-live="polite">
+              <span className="tracking-dot"/>{trackingStatus === 'tracking' ? `Tracking · ${delegate ?? 'AI'}` : trackingStatus === 'lost' ? 'Step back' : 'Finding you'}
+            </span>}
+          </div>
           <span className="timer-row"><Timer size={14}/>{time}</span>
         </div>
         <div className="camera-bottom">
