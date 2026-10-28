@@ -1,1 +1,2 @@
 - [Camera verification](camera-verification.md) — distinguish interactive startup, synthetic webcam checks, and physical-device validation.
+- [Prototype constraints](prototype-constraints.md) — one shared family plan, age-specific views, local data, explicit Demo labels, and preservation of earlier stages.
