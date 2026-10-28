@@ -105,12 +105,34 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .rep-count { font-size:42px;line-height:1;font-weight:900; letter-spacing:-.06em; }
 .advice-pill { background:#fffdf1ed;color:#17314d;padding:10px 13px;border-radius:14px;font-weight:900;font-size:13px;max-width:190px;transition:opacity .3s; }
 .exercise-select { width:100%; padding:13px 14px; border:1px solid #d9e0da; border-radius:14px; background:var(--paper); color:var(--navy); font-weight:800; }
+.exercise-toolbar { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:9px; }
+.exercise-reset { display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:40px;padding:8px 10px;border:1px solid #b8cfc1;border-radius:12px;background:#e6f1e9;color:var(--navy);font-size:12px;font-weight:900; }
+.exercise-reset:hover { background:#d7eadf; }
+.exercise-progress { display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 2px 0;color:#52687b;font-size:12px; }
+.exercise-progress strong { color:var(--navy);font-size:17px; }
+.exercise-reset-note { margin:4px 2px 0;color:#657789;font-size:10px;line-height:1.5; }
+.exercise-celebration { position:absolute;z-index:4;inset:63px 16px 100px;display:grid;place-items:center;pointer-events:none; }
+.exercise-celebration * { pointer-events:none; }
+.encouragement-sticker { position:relative;display:flex;flex-direction:column;align-items:center;width:216px;max-width:100%;padding:16px 12px 14px;border:4px solid #fffdf7;border-radius:29px;background:#fff3ce;color:#17264d;box-shadow:0 7px 0 #17264d30,0 13px 24px #142d4040;transform:rotate(-5deg);text-align:center;animation:sticker-pop .38s cubic-bezier(.2,1.4,.4,1) both; }
+.encouragement-sticker.sticker-coral { background:#ffe1d9;transform:rotate(4deg); }
+.encouragement-sticker.sticker-mint { background:#def4e8;transform:rotate(-3deg); }
+.sticker-icon { width:62px;height:62px;display:grid;place-items:center;margin-bottom:7px;border-radius:50%;background:#fffaf0;box-shadow:inset 0 0 0 1px #17264d12; }
+.sticker-gold .sticker-icon svg { color:#a86708;fill:#f6d477; }
+.sticker-coral .sticker-icon svg { color:#b54450;fill:#f59b9c; }
+.sticker-mint .sticker-icon svg { color:#34786d;fill:#a9d9b8; }
+.encouragement-sticker strong { font-size:21px;font-weight:900;line-height:1.15;letter-spacing:-.03em; }
+.sticker-milestone { margin-top:5px;font-size:13px;font-weight:900; }
+.encouragement-sticker small { margin-top:4px;font-size:10px;line-height:1.4;color:#4c6171; }
+.sticker-glint { position:absolute;color:#a86708;fill:#f6d477; }
+.sticker-glint-left { left:17px;top:30px;transform:rotate(-18deg); }
+.sticker-glint-right { right:13px;top:17px;transform:rotate(15deg); }
+@keyframes sticker-pop { from { opacity:0;scale:.65;translate:0 9px; } to { opacity:1;scale:1;translate:0 0; } }
 .status-box { background:#eff3ef;border-radius:15px;padding:13px;color:#17314d;font-size:13px;line-height:1.5; }
 .status-error { background:#fff0e9;border:1px solid #e5b7a3; }
 .timer-row { display:flex;gap:10px;align-items:center;color:#d7e5e3;font-size:12px;font-weight:800; }
 .camera-controls { display:flex;gap:8px; }
-.camera-controls button { border:1px solid #ffffff55;background:#ffffff16;color:white;border-radius:12px;padding:9px 12px;font-weight:800; }
-.camera-controls button:hover { background:#ffffff2e; }
+.camera-controls button { display:flex;align-items:center;justify-content:center;gap:6px;flex:1;min-height:44px;border:1px solid #cbd8cf;background:#edf3ed;color:var(--navy);border-radius:12px;padding:9px 12px;font-weight:800; }
+.camera-controls button:hover { background:#dfece3; }
 .motion-in { animation:rise .45s both; }
 @keyframes rise { from { opacity:0;transform:translateY(12px) } to { opacity:1;transform:translateY(0) } }
 @media (min-width:901px) {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Pause, Play, RotateCcw, Square, Timer, UserRound } from 'lucide-react';
+import { ExerciseCelebration } from './ExerciseCelebration';
 
 const CAMERA_RULES = {
   squatDownKneeAngleDeg: 110,
@@ -67,6 +68,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const [phase, setPhase] = useState('Ready');
   const [elapsed, setElapsed] = useState(0);
   const [adviceIndex, setAdviceIndex] = useState(3);
+  const [celebration, setCelebration] = useState<number | null>(null);
+  const clearCelebration = useCallback(() => setCelebration(null), []);
 
   const setMode = (mode: typeof state) => { stateRef.current = mode === 'live'; setState(mode); };
   const updateTrackingStatus = (value: 'searching' | 'tracking' | 'lost') => {
@@ -113,6 +116,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   useEffect(() => {
     const visibility = () => {
       if (document.hidden && stateRef.current) {
+        clearCelebration();
         pausedRef.current = true;
         pausedModeRef.current = 'live';
         stateRef.current = false;
@@ -126,6 +130,17 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     const savedCount = initialCounts[exercise] ?? 0;
     repsRef.current = savedCount;
     setReps(savedCount);
+    clearCelebration();
+    historyRef.current = [];
+    baselineRef.current = null;
+    calibrationStartedRef.current = null;
+    centerRef.current = null;
+    cooldownRef.current = 0;
+    lostAtRef.current = 0;
+    setElapsed(0);
+    phaseRef.current = state === 'demo' || (state === 'paused' && pausedModeRef.current === 'demo')
+      ? 'Demo mode · tap when you complete a rep' : 'Ready';
+    setPhase(phaseRef.current);
   }, [member, exercise]);
   const changeReps = useCallback((next: number) => {
     repsRef.current = next;
@@ -141,6 +156,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     repsRef.current = next;
     setReps(next);
     onRepRef.current(exerciseRef.current, next);
+    if (next % 3 === 0) setCelebration(next);
   }, []);
 
   const analyze = useCallback((landmarks: Point[], width: number, height: number) => {
@@ -308,6 +324,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   }, [analyze, draw, reportTrackingFailure]);
 
   const startCamera = async () => {
+    clearCelebration();
     teardown(); setDelegate(null); setError(''); setTrackingError(''); setMode('loading'); setPermissionExplained(true);
     pausedRef.current = false;
     const requestGeneration = ++generationRef.current;
@@ -387,22 +404,40 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       setError(message); setMode('error');
     }
   };
-  const stop = () => { teardown(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
-  const pause = () => { if (state === 'live' || state === 'preview' || state === 'demo') pausedModeRef.current = state; pausedRef.current = true; setMode('paused'); };
+  const stop = () => { teardown(); clearCelebration(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
+  const pause = () => { clearCelebration(); if (state === 'live' || state === 'preview' || state === 'demo') pausedModeRef.current = state; pausedRef.current = true; setMode('paused'); };
   const resume = () => { pausedRef.current = false; if (pausedModeRef.current === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else if (streamRef.current) setMode('preview'); else void startCamera(); };
-  const launchDemo = () => { teardown(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
-  const reset = () => { changeReps(0); setElapsed(0); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase(state === 'demo' ? 'Demo mode · tap when you complete a rep' : 'Find a comfortable space'); };
+  const launchDemo = () => { teardown(); clearCelebration(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  const reset = () => {
+    changeReps(0);
+    clearCelebration();
+    setElapsed(0);
+    historyRef.current = [];
+    lostAtRef.current = 0;
+    cooldownRef.current = 0;
+    baselineRef.current = null;
+    calibrationStartedRef.current = null;
+    centerRef.current = null;
+    updatePhase(state === 'demo' || (state === 'paused' && pausedModeRef.current === 'demo')
+      ? 'Demo mode · tap when you complete a rep' : 'Ready');
+  };
   const time = `${Math.floor(elapsed/60).toString().padStart(2,'0')}:${(elapsed%60).toString().padStart(2,'0')}`;
   const active = state === 'live' || state === 'demo' || state === 'preview';
   return <section aria-label="Movement camera coach">
     <div className="card" style={{padding:14}}>
-      <label className="eyebrow" htmlFor="exercise-choice">Choose a movement</label>
-      <select id="exercise-choice" className="exercise-select" value={exercise} onChange={(e) => { const nextExercise = e.target.value as Exercise; exerciseRef.current = nextExercise; setExercise(nextExercise); const savedCount = initialCounts[nextExercise] ?? 0; repsRef.current = savedCount; setReps(savedCount); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase('Ready'); }}>
+      <div className="exercise-toolbar">
+        <label className="eyebrow" htmlFor="exercise-choice">Choose a movement</label>
+        <button type="button" className="exercise-reset" onClick={reset} aria-label={`Reset ${exercise} reps`} title={`Reset only ${exercise} reps and timer for ${member}`}><RotateCcw size={15} aria-hidden="true"/> Reset reps</button>
+      </div>
+      <select id="exercise-choice" className="exercise-select" value={exercise} onChange={(e) => { clearCelebration(); const nextExercise = e.target.value as Exercise; exerciseRef.current = nextExercise; setExercise(nextExercise); const savedCount = initialCounts[nextExercise] ?? 0; repsRef.current = savedCount; setReps(savedCount); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase('Ready'); }}>
         {['squat','arm raise','side step','jump','high knees'].map((item) => <option key={item} value={item}>{item.replace(/\b\w/g,(c)=>c.toUpperCase())}</option>)}
       </select>
+      <div className="exercise-progress"><span><strong>{reps}</strong> saved reps</span><span>A sticker every 3 reps</span></div>
+      <p className="exercise-reset-note">Reset clears only this movement’s reps and timer.</p>
       <div className={`camera-panel ${active ? 'is-active' : 'is-idle'}`} style={{marginTop:12}}>
         <video ref={videoRef} muted playsInline aria-label="Mirrored live camera preview" />
         <canvas ref={canvasRef} aria-hidden="true" />
+        {celebration !== null && (state === 'live' || state === 'demo') && <ExerciseCelebration key={celebration} reps={celebration} onDone={clearCelebration}/>}
         {!active && <div style={{position:'absolute',inset:0,zIndex:1,display:'grid',placeItems:'center',background:'linear-gradient(145deg,#254b60,#142f3f)'}}>
           <div style={{textAlign:'center',padding:20,maxWidth:280}}>
             {state === 'loading' ? <><div className="camera-status" style={{display:'inline-flex'}}><Camera size={15}/> Starting camera</div><p style={{color:'#e6eee9'}}>Allow camera access in your browser’s permission prompt. Your video will appear here.</p><button className="button button-secondary" onClick={stop}>Cancel</button></> :
@@ -436,7 +471,6 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       {state === 'demo' && <button className="button full" style={{marginTop:12,background:'#d9eee2',color:'#17264D'}} onClick={() => { countRep(); updatePhase('Demo rep counted'); }}>Tap to count</button>}
       {active && <div className="camera-controls" style={{marginTop:12}}>
         <button onClick={pause}><Pause size={14}/> Pause</button>
-        <button onClick={reset}><RotateCcw size={14}/> Reset reps</button>
         <button onClick={stop}><Square size={14}/> Stop</button>
       </div>}
       {state === 'ready' && !permissionExplained && <p className="copy" style={{fontSize:12,margin:'10px 2px 0'}}>Your camera is not on yet. We explain why it’s needed before asking for access.</p>}
