@@ -1,0 +1,17 @@
+.coach-target { display:flex; align-items:center; gap:12px; font-size:13px; font-weight:900; margin:10px 0; }
+.coach-target progress { flex:1; min-width:0; height:10px; accent-color:#4877E8; }
+.coach-visibility { font-size:12px; font-weight:800; margin:8px 0; }
+.coach-visibility small { display:block; font-size:10px; opacity:.75; }
+.coach-example { display:flex; gap:12px; align-items:center; padding:8px 12px; margin:8px 0; border-radius:18px; background:#FBF8F1; color:#17264D; }
+.coach-example svg { flex:0 0 76px; width:76px; height:76px; overflow:visible; }
+.coach-example figcaption { display:grid; gap:4px; font-size:12px; }
+.coach-example small { font-size:10px; opacity:.75; }
+.example-person { transform-origin:48px 80px; animation:coach-stand 2s ease-in-out infinite; }
+[data-exercise="jump"] .example-person { animation:coach-jump 1.5s ease-in-out infinite; }
+[data-exercise="side step"] .example-person { animation:coach-step 2s ease-in-out infinite; }
+[data-exercise="arm raise"] .example-arms { transform-origin:48px 32px; animation:coach-arms 2s ease-in-out infinite; }
+@keyframes coach-stand { 50% { transform:translateY(7px) scaleY(.87); } }
+@keyframes coach-jump { 50% { transform:translateY(-13px); } }
+@keyframes coach-step { 50% { transform:translateX(10px); } }
+@keyframes coach-arms { 50% { transform:scaleY(-1); } }
+@media (prefers-reduced-motion:reduce) { .coach-example * { animation:none!important; } }

@@ -39,6 +39,12 @@ export default function ProgressPage({ store }: { store: FamilyStore }) {
   return <main className="sl-page motion-in">
     <div className="eyebrow">{data.family} · together</div>
     <h1 className="title">Family<br />progress.</h1>
+    <section className="sl-card" data-testid="card-move-points" style={{ marginBottom: 14 }}>
+      <div className="eyebrow">Your Move points · {current.name}</div>
+      <strong style={{ fontSize: 30 }}>{current.points || 0}</strong>
+      <p className="sl-sub">Five encouragement points for each finished Move session. These are not a health or fitness score.</p>
+      <Link href="/move" className="sl-btn sl-btn-soft sl-btn-sm">Explore Move <ArrowRight size={14} /></Link>
+    </section>
 
     <section className="sl-card" data-testid="card-family-ring"><div className="sl-row" style={{ gap: 16 }}>
       <Ring percent={familyPct} size={104} stroke={11} color="#4877E8" label="Family progress today"><span style={{ fontSize: 20 }}>{Math.round(familyPct)}%</span></Ring>

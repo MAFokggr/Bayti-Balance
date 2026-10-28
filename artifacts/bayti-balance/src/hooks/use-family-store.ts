@@ -4,6 +4,7 @@ import {
   normalizeFamilyData, recordPlanCompletion, recordReps, recordWater, STORAGE_KEY,
 } from '@/lib/family-data';
 import type { AdaptationId, FamilyData, FamilyDraft, FamilyMessage, Member, WeatherMode } from '@/lib/family-types';
+import { MOVE_STORAGE_KEY } from '@/lib/move-state';
 
 function loadStoredFamily() {
   try {
@@ -69,12 +70,13 @@ export function useFamilyStore() {
   const selectMember = useCallback((id: string) => setData((old) =>
     old.members.some((member) => member.id === id) ? { ...old, activeMember: id } : old), []);
   const loadSample = useCallback(() => {
+    try { localStorage.removeItem(MOVE_STORAGE_KEY); } catch { /* the storage banner reports browser failures */ }
     blockedReadRef.current = false;
     setData(createSampleData());
   }, []);
   const resetDemo = useCallback(() => {
     blockedReadRef.current = false;
-    try { localStorage.removeItem(DRAFT_STORAGE_KEY); } catch { /* the persistent banner reports storage errors */ }
+    try { localStorage.removeItem(DRAFT_STORAGE_KEY); localStorage.removeItem(MOVE_STORAGE_KEY); } catch { /* the persistent banner reports storage errors */ }
     setData(createInitialData());
   }, []);
   const saveFamily = useCallback((draft: FamilyDraft) => {

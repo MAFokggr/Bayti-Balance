@@ -12,3 +12,9 @@ Use Nunito Sans and Lucide icons, with no emojis, music, sound, or audio.
 **Why:** These are the user's global rules for the staged, one-day student prototype, repeated in the continuation brief.
 
 **How to apply:** Extend the same family experience, preserve saved progress and previous stages, and keep the distinction between working features and simulations clear.
+
+Parent-and-child camera games use separate, single-person turns, never simultaneous two-person tracking. Children's game progress must come from counted movement or explicitly labeled Demo taps. A jump comparison may use normalized hip rise, never invented centimetres.
+
+**Why:** The user explicitly required these limits for Move's parent/child challenge and jumping games.
+
+**How to apply:** Keep camera ownership tied to the current turn's member, close it at handoff, and preserve these limits when extending family games or reporting measurements.

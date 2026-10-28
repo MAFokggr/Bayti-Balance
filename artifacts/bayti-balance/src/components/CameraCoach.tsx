@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Camera, Pause, Play, RotateCcw, Square, Timer, UserRound } from 'lucide-react';
 import { ExerciseCelebration } from './ExerciseCelebration';
+import { CameraExerciseExample } from './CameraExerciseExample';
+import type { CameraExercise, CoachMetrics, CoachMode } from '@/lib/camera-types';
+import './camera-additions.css';
 
 const CAMERA_RULES = {
   squatDownKneeAngleDeg: 110,
@@ -16,8 +19,13 @@ const CAMERA_RULES = {
 
 const ADVICE = ['Keep your back tall', 'Move a little slower', 'Raise your arms higher', 'Good form', 'Great control', 'Take a short break', 'Keep your body centered'];
 const BONES: [number, number][] = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[29,31],[24,26],[26,28],[28,30],[30,32]];
-type Exercise = 'squat' | 'arm raise' | 'side step' | 'jump' | 'high knees';
-type Props = { member: string; onRep: (exercise: string, reps: number) => void; initialCount?: number; initialCounts?: Record<string, number> };
+type Exercise = CameraExercise;
+type Props = {
+  member: string; onRep: (exercise: string, reps: number) => void;
+  initialCount?: number; initialCounts?: Record<string, number>;
+  initialExercise?: Exercise; allowedExercises?: Exercise[]; targetReps?: number; showExample?: boolean;
+  onMetrics?: (metrics: CoachMetrics) => void; paused?: boolean; onStop?: () => void;
+};
 type Point = { x: number; y: number; visibility?: number };
 
 function createTrackingCanvas() {
@@ -30,7 +38,12 @@ function createTrackingCanvas() {
   return canvas;
 }
 
-export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {} }: Props) {
+export function CameraCoach({
+  member, onRep, initialCount = 0, initialCounts = {}, initialExercise = 'squat',
+  allowedExercises, targetReps, showExample = false, onMetrics, paused: externallyPaused, onStop,
+}: Props) {
+  const choices: Exercise[] = allowedExercises?.length ? allowedExercises : ['squat', 'arm raise', 'side step', 'jump', 'high knees'];
+  const startingExercise = choices.includes(initialExercise) ? initialExercise : choices[0];
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -52,24 +65,39 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const pausedRef = useRef(false);
   const pausedModeRef = useRef<'live' | 'preview' | 'demo'>('live');
   const trackingRef = useRef<'searching' | 'tracking' | 'lost'>('searching');
-  const [exercise, setExercise] = useState<Exercise>('squat');
-  const exerciseRef = useRef<Exercise>('squat');
+  const framesRef = useRef({ total: 0, visible: 0 });
+  const peakRiseRef = useRef(0);
+  const [jumpRise, setJumpRise] = useState<{ last: number | null; previous: number | null }>({ last: null, previous: null });
+  const onMetricsRef = useRef(onMetrics);
+  onMetricsRef.current = onMetrics;
+  const [exercise, setExercise] = useState<Exercise>(startingExercise);
+  const exerciseRef = useRef<Exercise>(startingExercise);
   exerciseRef.current = exercise;
   const onRepRef = useRef(onRep);
   onRepRef.current = onRep;
   const [permissionExplained, setPermissionExplained] = useState(false);
-  const [state, setState] = useState<'ready'|'loading'|'preview'|'live'|'paused'|'error'|'demo'>('ready');
+  const [state, setState] = useState<CoachMode>('ready');
+  const modeRef = useRef<CoachMode>('ready');
+  modeRef.current = state;
   const [trackingStatus, setTrackingStatus] = useState<'searching' | 'tracking' | 'lost'>('searching');
   const [delegate, setDelegate] = useState<'GPU' | 'CPU' | null>(null);
   const [error, setError] = useState('');
   const [trackingError, setTrackingError] = useState('');
-  const [reps, setReps] = useState(initialCounts.squat ?? initialCount);
-  const repsRef = useRef(initialCounts.squat ?? initialCount);
+  const [reps, setReps] = useState(initialCounts[startingExercise] ?? initialCount);
+  const repsRef = useRef(initialCounts[startingExercise] ?? initialCount);
   const [phase, setPhase] = useState('Ready');
   const [elapsed, setElapsed] = useState(0);
   const [adviceIndex, setAdviceIndex] = useState(3);
   const [celebration, setCelebration] = useState<number | null>(null);
   const clearCelebration = useCallback(() => setCelebration(null), []);
+  useEffect(() => {
+    onMetricsRef.current?.({
+      exercise, reps, elapsedSeconds: elapsed, mode: state, phase, tracking: trackingStatus,
+      lastJumpRise: state === 'demo' ? null : jumpRise.last,
+      previousJumpRise: state === 'demo' ? null : jumpRise.previous,
+      consistency: state !== 'demo' && framesRef.current.total ? Math.round(framesRef.current.visible / framesRef.current.total * 100) : 0,
+    });
+  }, [exercise, reps, elapsed, state, phase, trackingStatus, jumpRise]);
 
   const setMode = (mode: typeof state) => { stateRef.current = mode === 'live'; setState(mode); };
   const updateTrackingStatus = (value: 'searching' | 'tracking' | 'lost') => {
@@ -115,10 +143,11 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   }, [state]);
   useEffect(() => {
     const visibility = () => {
-      if (document.hidden && stateRef.current) {
+      if (document.hidden && (stateRef.current || modeRef.current === 'demo' || modeRef.current === 'preview')) {
         clearCelebration();
         pausedRef.current = true;
-        pausedModeRef.current = 'live';
+        cancelAnimationFrame(rafRef.current);
+        pausedModeRef.current = modeRef.current === 'demo' ? 'demo' : modeRef.current === 'preview' ? 'preview' : 'live';
         stateRef.current = false;
         setState('paused');
       }
@@ -127,7 +156,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     return () => { document.removeEventListener('visibilitychange', visibility); teardown(); };
   }, [teardown]);
   useEffect(() => {
-    const savedCount = initialCounts[exercise] ?? 0;
+    const savedCount = initialCounts[exercise] ?? initialCount;
     repsRef.current = savedCount;
     setReps(savedCount);
     clearCelebration();
@@ -137,6 +166,9 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     centerRef.current = null;
     cooldownRef.current = 0;
     lostAtRef.current = 0;
+    framesRef.current = { total: 0, visible: 0 };
+    peakRiseRef.current = 0;
+    setJumpRise({ last: null, previous: null });
     setElapsed(0);
     phaseRef.current = state === 'demo' || (state === 'paused' && pausedModeRef.current === 'demo')
       ? 'Demo mode · tap when you complete a rep' : 'Ready';
@@ -150,13 +182,14 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const updatePhase = (value: string) => { phaseRef.current = value; setPhase(value); };
 
   const countRep = useCallback(() => {
-    if (Date.now() - cooldownRef.current < CAMERA_RULES.repCooldownMs) return;
+    if (Date.now() - cooldownRef.current < CAMERA_RULES.repCooldownMs) return false;
     cooldownRef.current = Date.now();
     const next = repsRef.current + 1;
     repsRef.current = next;
     setReps(next);
     onRepRef.current(exerciseRef.current, next);
     if (next % 3 === 0) setCelebration(next);
+    return true;
   }, []);
 
   const analyze = useCallback((landmarks: Point[], width: number, height: number) => {
@@ -169,6 +202,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       return degrees > 180 ? 360 - degrees : degrees;
     };
     let ready = false;
+    let landedRise = 0;
     if (activeExercise === 'squat') {
       const kneeTriples: [number, number, number][] = [[23,25,27],[24,26,28]];
       const visibleAngles = kneeTriples
@@ -198,8 +232,14 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         baselineRef.current = baselineRef.current * .92 + y * .08;
         updatePhase('Calibrating · stand still');
       }
-      else if (y < baselineRef.current - CAMERA_RULES.jumpRiseFraction) { if (phaseRef.current !== 'In the air') updatePhase('In the air'); }
-      else if (phaseRef.current === 'In the air') { updatePhase('Landed'); ready = true; }
+      else if (y < baselineRef.current - CAMERA_RULES.jumpRiseFraction) {
+        peakRiseRef.current = Math.max(peakRiseRef.current, baselineRef.current - y);
+        if (phaseRef.current !== 'In the air') updatePhase('In the air');
+      }
+      else if (phaseRef.current === 'In the air') {
+        landedRise = peakRiseRef.current; peakRiseRef.current = 0;
+        updatePhase('Landed'); ready = true;
+      }
     } else if (activeExercise === 'high knees' && [23,24,25,26].every(visible)) {
       const leftUp = landmarks[25].y < landmarks[23].y;
       const rightUp = landmarks[26].y < landmarks[24].y;
@@ -208,7 +248,9 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         if (phaseRef.current !== `Knee ${side}`) { updatePhase(`Knee ${side}`); ready = true; }
       }
     }
-    if (ready) countRep();
+    if (ready && countRep() && activeExercise === 'jump' && landedRise > 0) {
+      setJumpRise((old) => ({ previous: old.last, last: landedRise }));
+    }
     void width; void height;
   }, [countRep]);
 
@@ -242,7 +284,9 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         const result = detectorRef.current.detectForVideo(videoRef.current, now);
         const raw: Point[] | undefined = result.landmarks?.[0];
         const hasVisiblePose = raw && raw.filter((p) => (p.visibility ?? 1) >= CAMERA_RULES.visibilityMinimum).length >= 8;
+        framesRef.current.total++;
         if (raw && hasVisiblePose) {
+          framesRef.current.visible++;
           const wasLost = lostAtRef.current > 0 && Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs;
           lostAtRef.current = 0;
           updateTrackingStatus('tracking');
@@ -250,6 +294,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
             updatePhase('Ready');
             cooldownRef.current = Date.now();
             historyRef.current = [];
+            baselineRef.current = null; calibrationStartedRef.current = null;
+            centerRef.current = null; peakRiseRef.current = 0;
           }
           historyRef.current = [...historyRef.current, raw].slice(-5);
           const smoothed = raw.map((p, i) => {
@@ -404,14 +450,30 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       setError(message); setMode('error');
     }
   };
-  const stop = () => { teardown(); clearCelebration(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
-  const pause = () => { clearCelebration(); if (state === 'live' || state === 'preview' || state === 'demo') pausedModeRef.current = state; pausedRef.current = true; setMode('paused'); };
-  const resume = () => { pausedRef.current = false; if (pausedModeRef.current === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else if (streamRef.current) setMode('preview'); else void startCamera(); };
-  const launchDemo = () => { teardown(); clearCelebration(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  const stop = () => { teardown(); clearCelebration(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); onStop?.(); };
+  const pause = () => { clearCelebration(); cancelAnimationFrame(rafRef.current); if (state === 'live' || state === 'preview' || state === 'demo') pausedModeRef.current = state; pausedRef.current = true; setMode('paused'); };
+  const resume = () => {
+    pausedRef.current = false;
+    if (pausedModeRef.current === 'demo') setMode('demo');
+    else if (streamRef.current && detectorRef.current) {
+      historyRef.current = []; baselineRef.current = null; calibrationStartedRef.current = null;
+      centerRef.current = null; peakRiseRef.current = 0; cooldownRef.current = Date.now(); updatePhase('Ready');
+      setMode('live'); rafRef.current = requestAnimationFrame(frameLoop);
+    } else if (streamRef.current) setMode('preview'); else void startCamera();
+  };
+  const launchDemo = () => { teardown(); clearCelebration(); framesRef.current = { total: 0, visible: 0 }; setJumpRise({ last: null, previous: null }); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  useEffect(() => {
+    if (externallyPaused && (state === 'live' || state === 'demo' || state === 'preview')) pause();
+  }, [externallyPaused, state]);
+  useEffect(() => {
+    if (externallyPaused === false && state === 'paused') resume();
+  }, [externallyPaused]);
   const reset = () => {
     changeReps(0);
     clearCelebration();
     setElapsed(0);
+    framesRef.current = { total: 0, visible: 0 }; peakRiseRef.current = 0;
+    setJumpRise({ last: null, previous: null });
     historyRef.current = [];
     lostAtRef.current = 0;
     cooldownRef.current = 0;
@@ -429,11 +491,14 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         <label className="eyebrow" htmlFor="exercise-choice">Choose a movement</label>
         <button type="button" className="exercise-reset" onClick={reset} aria-label={`Reset ${exercise} reps`} title={`Reset only ${exercise} reps and timer for ${member}`}><RotateCcw size={15} aria-hidden="true"/> Reset reps</button>
       </div>
-      <select id="exercise-choice" className="exercise-select" value={exercise} onChange={(e) => { clearCelebration(); const nextExercise = e.target.value as Exercise; exerciseRef.current = nextExercise; setExercise(nextExercise); const savedCount = initialCounts[nextExercise] ?? 0; repsRef.current = savedCount; setReps(savedCount); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase('Ready'); }}>
-        {['squat','arm raise','side step','jump','high knees'].map((item) => <option key={item} value={item}>{item.replace(/\b\w/g,(c)=>c.toUpperCase())}</option>)}
+      <select id="exercise-choice" className="exercise-select" value={exercise} disabled={choices.length === 1} onChange={(e) => { clearCelebration(); const nextExercise = e.target.value as Exercise; exerciseRef.current = nextExercise; setExercise(nextExercise); const savedCount = initialCounts[nextExercise] ?? 0; repsRef.current = savedCount; setReps(savedCount); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase('Ready'); }}>
+        {choices.map((item) => <option key={item} value={item}>{item.replace(/\b\w/g,(c)=>c.toUpperCase())}</option>)}
       </select>
       <div className="exercise-progress"><span><strong>{reps}</strong> saved reps</span><span>A sticker every 3 reps</span></div>
       <p className="exercise-reset-note">Reset clears only this movement’s reps and timer.</p>
+      {targetReps !== undefined && <div className="coach-target" aria-label="Progress toward the exercise target"><span>{reps} / {targetReps} reps</span><progress max={targetReps} value={Math.min(targetReps, reps)} /></div>}
+      {showExample && <CameraExerciseExample exercise={exercise} />}
+      <p className="coach-visibility" aria-live="polite">{state === 'demo' ? 'Demo · no form or height analysis' : trackingStatus === 'tracking' ? 'Pose visible · move comfortably' : trackingStatus === 'lost' ? 'Pose not visible · step into view' : 'Waiting for a visible pose'}<small>Visibility feedback only, not a medical form assessment.</small></p>
       <div className={`camera-panel ${active ? 'is-active' : 'is-idle'}`} style={{marginTop:12}}>
         <video ref={videoRef} muted playsInline aria-label="Mirrored live camera preview" />
         <canvas ref={canvasRef} aria-hidden="true" />
@@ -469,10 +534,10 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         <button className="button button-secondary" onClick={launchDemo}>Use Demo Mode</button>
       </div>}
       {state === 'demo' && <button className="button full" style={{marginTop:12,background:'#d9eee2',color:'#17264D'}} onClick={() => { countRep(); updatePhase('Demo rep counted'); }}>Tap to count</button>}
-      {active && <div className="camera-controls" style={{marginTop:12}}>
-        <button onClick={pause}><Pause size={14}/> Pause</button>
-        <button onClick={stop}><Square size={14}/> Stop</button>
-      </div>}
+      <div className="camera-controls" style={{marginTop:12}}>
+        <button onClick={state === 'paused' ? resume : pause} disabled={!active && state !== 'paused'}>{state === 'paused' ? <Play size={14}/> : <Pause size={14}/>} {state === 'paused' ? 'Resume' : 'Pause'}</button>
+        <button onClick={stop} disabled={state === 'ready'}><Square size={14}/> Stop</button>
+      </div>
       {state === 'ready' && !permissionExplained && <p className="copy" style={{fontSize:12,margin:'10px 2px 0'}}>Your camera is not on yet. We explain why it’s needed before asking for access.</p>}
       <p className="copy" style={{fontSize:11,margin:'10px 2px 0'}}>Move at your own pace. Stop if something hurts. Bayti Balance is an educational prototype. It does not diagnose medical conditions or replace advice from a qualified professional.</p>
     </div>

@@ -52,9 +52,11 @@ export function waterFor(data: FamilyData, memberId: string, day = dayKey()): nu
 
 export function memberProgress(data: FamilyData, memberId: string, day = dayKey()) {
   const activityIds = new Set(data.activityLog
-    .filter((log) => log.memberId === memberId && log.day === day && log.kind !== 'practice' && (log.kind !== 'water' || Boolean(log.sharedId)))
+    .filter((log) => log.memberId === memberId && log.day === day && (log.kind !== 'practice' || log.id.startsWith('move:')) && (log.kind !== 'water' || Boolean(log.sharedId)))
     .map((log) => log.sharedId ?? log.id));
-  if (sumReps(data, memberId, day) > 0) activityIds.add('practice');
+  const moveReps = data.activityLog.filter((log) => log.memberId === memberId && log.day === day && log.kind === 'practice' && log.id.startsWith('move:'))
+    .reduce((sum, log) => sum + log.amount, 0);
+  if (sumReps(data, memberId, day) > moveReps) activityIds.add('practice');
   if (waterFor(data, memberId, day) > 0) activityIds.add('water');
   const actions = activityIds.size;
   const goal = 3;
