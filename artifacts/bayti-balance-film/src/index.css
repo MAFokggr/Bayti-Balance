@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT,WONK@9..144,500,20,1;9..144,600,35,1;9..144,700,35,1&family=Nunito+Sans:wght@400;500;600;700;800;900&display=swap');
+@import 'tailwindcss';
+
+:root {
+  font-family: 'Nunito Sans', sans-serif;
+  color: #17264d;
+  background: #fbf7ed;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --paper: #fbf7ed;
+  --cream: #fffdf7;
+  --navy: #17264d;
+  --muted: #657789;
+  --turquoise: #78d5c5;
+  --coral: #f59b7a;
+  --yellow: #f6d477;
+  --mint: #a9d9b8;
+  --lavender: #cdbbea;
+  --oasis: #317b71;
+  --night: #17183f;
+  --line: #e6dfd2;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-body: 'Nunito Sans', sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { min-width: 320px; min-height: 100dvh; background: var(--paper); }
+button { font: inherit; }

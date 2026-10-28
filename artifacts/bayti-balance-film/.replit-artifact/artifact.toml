@@ -1,0 +1,29 @@
+kind = "video"
+videoAspectRatio = "16:9"
+previewPath = "/bayti-balance-film/"
+title = "Bayti Balance Film"
+description = "A short animated film introducing Bayti Balance, a family wellness prototype for movement, food, recovery, and shared progress."
+version = "1.0.0"
+id = "artifacts/bayti-balance-film"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/bayti-balance-film/" ]
+localPort = 22085
+
+[services.development]
+run = "pnpm --filter @workspace/bayti-balance-film run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bayti-balance-film", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bayti-balance-film/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22085"
+BASE_PATH = "/bayti-balance-film/"
