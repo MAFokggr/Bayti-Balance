@@ -19,6 +19,16 @@ type Exercise = 'squat' | 'arm raise' | 'side step' | 'jump' | 'high knees';
 type Props = { member: string; onRep: (exercise: string, reps: number) => void; initialCount?: number; initialCounts?: Record<string, number> };
 type Point = { x: number; y: number; visibility?: number };
 
+function createTrackingCanvas() {
+  // Use a dedicated DOM canvas, not the 2D skeleton overlay or an implicit
+  // OffscreenCanvas. MediaPipe needs WebGL for image input even with CPU inference.
+  const canvas = document.createElement('canvas');
+  if (!canvas.getContext('webgl2') && !canvas.getContext('webgl')) {
+    throw new Error('WebGL is unavailable for movement tracking.');
+  }
+  return canvas;
+}
+
 export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {} }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,6 +48,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const calibrationStartedRef = useRef<number | null>(null);
   const centerRef = useRef<number | null>(null);
   const stateRef = useRef(false);
+  const pausedRef = useRef(false);
+  const pausedModeRef = useRef<'live' | 'preview' | 'demo'>('live');
   const trackingRef = useRef<'searching' | 'tracking' | 'lost'>('searching');
   const [exercise, setExercise] = useState<Exercise>('squat');
   const exerciseRef = useRef<Exercise>('squat');
@@ -45,10 +57,11 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   const onRepRef = useRef(onRep);
   onRepRef.current = onRep;
   const [permissionExplained, setPermissionExplained] = useState(false);
-  const [state, setState] = useState<'ready'|'loading'|'live'|'paused'|'error'|'demo'>('ready');
+  const [state, setState] = useState<'ready'|'loading'|'preview'|'live'|'paused'|'error'|'demo'>('ready');
   const [trackingStatus, setTrackingStatus] = useState<'searching' | 'tracking' | 'lost'>('searching');
   const [delegate, setDelegate] = useState<'GPU' | 'CPU' | null>(null);
   const [error, setError] = useState('');
+  const [trackingError, setTrackingError] = useState('');
   const [reps, setReps] = useState(initialCounts.squat ?? initialCount);
   const repsRef = useRef(initialCounts.squat ?? initialCount);
   const [phase, setPhase] = useState('Ready');
@@ -72,6 +85,23 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     filesRef.current = null;
     detectorDelegateRef.current = null;
   }, []);
+  const reportTrackingFailure = useCallback((cause: unknown) => {
+    stateRef.current = false;
+    cancelAnimationFrame(rafRef.current);
+    const detector = detectorRef.current;
+    detectorRef.current = null;
+    detectorDelegateRef.current = null;
+    try { detector?.close?.(); } catch (closeError) { console.warn('[Bayti camera] Detector cleanup failed', closeError); }
+    setDelegate(null);
+    const message = cause instanceof Error ? cause.message : String(cause);
+    setTrackingError(/webgl|opengl|activetexture/i.test(message)
+      ? 'Your camera is on, but movement tracking needs WebGL support. Enable hardware acceleration in your browser or try a different browser. You can also use Demo Mode.'
+      : 'Your camera is on, but movement tracking could not start. Retry tracking, or use Demo Mode.');
+    const canvas = canvasRef.current;
+    if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+    pausedModeRef.current = 'preview';
+    setState(pausedRef.current ? 'paused' : 'preview');
+  }, []);
   useEffect(() => {
     if (state === 'live' || state === 'demo') {
       const tick = window.setInterval(() => setElapsed((value) => value + 1), 1000);
@@ -83,6 +113,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
   useEffect(() => {
     const visibility = () => {
       if (document.hidden && stateRef.current) {
+        pausedRef.current = true;
+        pausedModeRef.current = 'live';
         stateRef.current = false;
         setState('paused');
       }
@@ -117,7 +149,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
     const angle = (a: Point, b: Point, c: Point) => {
       const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
-      return Math.abs((radians * 180 / Math.PI + 360) % 360 - 180);
+      const degrees = Math.abs(radians * 180 / Math.PI) % 360;
+      return degrees > 180 ? 360 - degrees : degrees;
     };
     let ready = false;
     if (activeExercise === 'squat') {
@@ -135,13 +168,13 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       const visibleSides = sides.filter(([shoulder,wrist,hip]) => [shoulder,wrist,hip].every(visible));
       const raised = visibleSides.some(([shoulder,wrist]) => landmarks[wrist].y < landmarks[shoulder].y);
       const lowered = visibleSides.some(([,wrist,hip]) => landmarks[wrist].y > landmarks[hip].y);
-      if (raised) { if (!phaseRef.current.includes('Raised')) updatePhase('Arms raised'); }
-      else if (lowered && phaseRef.current.includes('Raised')) { updatePhase('Arms down'); ready = true; }
+      if (raised) { if (phaseRef.current !== 'Arms raised') updatePhase('Arms raised'); }
+      else if (lowered && phaseRef.current === 'Arms raised') { updatePhase('Arms down'); ready = true; }
     } else if (activeExercise === 'side step' && [23,24].every(visible)) {
       const x = midpoint(landmarks[23], landmarks[24]).x;
       if (centerRef.current === null) centerRef.current = x;
-      if (!phaseRef.current.includes('Out') && Math.abs(x - centerRef.current) > CAMERA_RULES.sideStepFraction) updatePhase('Step out');
-       else if (phaseRef.current.includes('Out') && Math.abs(x - centerRef.current) < CAMERA_RULES.sideStepFraction) { updatePhase('Back to center'); ready = true; }
+      if (phaseRef.current !== 'Step out' && Math.abs(x - centerRef.current) > CAMERA_RULES.sideStepFraction) updatePhase('Step out');
+      else if (phaseRef.current === 'Step out' && Math.abs(x - centerRef.current) < CAMERA_RULES.sideStepFraction) { updatePhase('Back to center'); ready = true; }
     } else if (activeExercise === 'jump' && [23,24].every(visible)) {
       const y = midpoint(landmarks[23], landmarks[24]).y;
       if (baselineRef.current === null) { baselineRef.current = y; calibrationStartedRef.current = Date.now(); updatePhase('Calibrating · stand still'); }
@@ -149,8 +182,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         baselineRef.current = baselineRef.current * .92 + y * .08;
         updatePhase('Calibrating · stand still');
       }
-      else if (y < baselineRef.current - CAMERA_RULES.jumpRiseFraction) { if (!phaseRef.current.includes('Air')) updatePhase('In the air'); }
-      else if (phaseRef.current.includes('Air')) { updatePhase('Landed'); ready = true; }
+      else if (y < baselineRef.current - CAMERA_RULES.jumpRiseFraction) { if (phaseRef.current !== 'In the air') updatePhase('In the air'); }
+      else if (phaseRef.current === 'In the air') { updatePhase('Landed'); ready = true; }
     } else if (activeExercise === 'high knees' && [23,24,25,26].every(visible)) {
       const leftUp = landmarks[25].y < landmarks[23].y;
       const rightUp = landmarks[26].y < landmarks[24].y;
@@ -174,7 +207,8 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
     ctx.strokeStyle = '#a9edcf';
     ctx.fillStyle = '#fff5c5';
     BONES.forEach(([a,b]) => {
-      if ((points[a]?.visibility ?? 1) < CAMERA_RULES.visibilityMinimum || (points[b]?.visibility ?? 1) < CAMERA_RULES.visibilityMinimum) return;
+      if (!points[a] || !points[b]) return;
+      if ((points[a].visibility ?? 1) < CAMERA_RULES.visibilityMinimum || (points[b].visibility ?? 1) < CAMERA_RULES.visibilityMinimum) return;
       ctx.beginPath(); ctx.moveTo(points[a].x*w, points[a].y*h); ctx.lineTo(points[b].x*w, points[b].y*h); ctx.stroke();
     });
     points.forEach((p) => {
@@ -224,11 +258,17 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
           historyRef.current = [];
           draw([], videoRef.current.videoWidth, videoRef.current.videoHeight);
         }
-      } catch {
+      } catch (cause) {
+        console.error('[Bayti camera] Pose frame failed', cause, {
+          delegate: detectorDelegateRef.current,
+          videoWidth: videoRef.current?.videoWidth,
+          videoHeight: videoRef.current?.videoHeight,
+          currentTime: videoRef.current?.currentTime,
+        });
         if (detectorDelegateRef.current === 'GPU' && !cpuFallbackUsedRef.current && filesRef.current) {
           cpuFallbackUsedRef.current = true;
           stateRef.current = false;
-          setState('loading');
+          setState('preview');
           const fallbackGeneration = generationRef.current;
           const files = filesRef.current;
           void (async () => {
@@ -237,6 +277,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
               const vision = await import('@mediapipe/tasks-vision') as any;
               const cpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
                 baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
+                canvas: createTrackingCanvas(),
                 runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
               });
               if (generationRef.current !== fallbackGeneration) {
@@ -248,28 +289,32 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
               setDelegate('CPU');
               updateTrackingStatus('searching');
               updatePhase('CPU tracking enabled');
+              if (pausedRef.current) return;
               setMode('live');
               rafRef.current = requestAnimationFrame(frameLoop);
-            } catch {
-              teardown();
-              setError('GPU tracking stopped and the CPU fallback could not start. Retry, or use Demo Mode.');
-              setMode('error');
+            } catch (cause) {
+              if (generationRef.current !== fallbackGeneration) return;
+              console.error('[Bayti camera] CPU fallback failed', cause);
+              reportTrackingFailure(cause);
             }
           })();
           return;
         }
-        teardown(); setError('The pose model stopped responding. Try again, or use Demo Mode.'); setMode('error'); return;
+        reportTrackingFailure(cause);
+        return;
       }
     }
     rafRef.current = requestAnimationFrame(frameLoop);
-  }, [analyze, draw, teardown]);
+  }, [analyze, draw, reportTrackingFailure]);
 
   const startCamera = async () => {
-    teardown(); setDelegate(null); setError(''); setMode('loading'); setPermissionExplained(true);
+    teardown(); setDelegate(null); setError(''); setTrackingError(''); setMode('loading'); setPermissionExplained(true);
+    pausedRef.current = false;
     const requestGeneration = ++generationRef.current;
     const requestIsCurrent = () => generationRef.current === requestGeneration;
     cpuFallbackUsedRef.current = false;
     updateTrackingStatus('searching');
+    let cameraOpened = false;
     try {
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available in this browser. Use a secure connection or try Demo Mode.');
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
@@ -281,14 +326,18 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       if (!videoRef.current) throw new Error('Camera preview could not be opened. Please retry.');
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
+      if (!requestIsCurrent()) return;
+      cameraOpened = true;
+      setMode('preview');
       const vision = await import('@mediapipe/tasks-vision') as any;
       if (!requestIsCurrent()) return;
-      const files = await vision.FilesetResolver.forVisionTasks('/wasm/');
+      const files = await vision.FilesetResolver.forVisionTasks('/wasm');
       if (!requestIsCurrent()) return;
       filesRef.current = files;
       try {
         const gpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
           baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'GPU' },
+          canvas: createTrackingCanvas(),
           runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
         });
         if (!requestIsCurrent()) {
@@ -298,9 +347,12 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         detectorRef.current = gpuDetector;
         detectorDelegateRef.current = 'GPU';
         setDelegate('GPU');
-      } catch {
+      } catch (cause) {
+        if (!requestIsCurrent()) return;
+        console.warn('[Bayti camera] GPU unavailable; trying CPU', cause);
         const cpuDetector = await vision.PoseLandmarker.createFromOptions(files, {
           baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
+          canvas: createTrackingCanvas(),
           runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
         });
         if (!requestIsCurrent()) {
@@ -315,10 +367,16 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       frameAtRef.current = performance.now();
       baselineRef.current = null; centerRef.current = null; historyRef.current = [];
       updatePhase('Find a comfortable space');
+      if (pausedRef.current) return;
       setMode('live');
       rafRef.current = requestAnimationFrame(frameLoop);
     } catch (cause) {
       if (!requestIsCurrent()) return;
+      console.error('[Bayti camera] Startup failed', cause);
+      if (cameraOpened) {
+        reportTrackingFailure(cause);
+        return;
+      }
       teardown();
       updateTrackingStatus('searching');
       const name = (cause as { name?: string })?.name;
@@ -329,13 +387,13 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
       setError(message); setMode('error');
     }
   };
-  const stop = () => { teardown(); setDelegate(null); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
-  const pause = () => { stateRef.current = false; setMode('paused'); };
-  const resume = () => { if (state === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else void startCamera(); };
-  const launchDemo = () => { teardown(); setDelegate(null); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  const stop = () => { teardown(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
+  const pause = () => { if (state === 'live' || state === 'preview' || state === 'demo') pausedModeRef.current = state; pausedRef.current = true; setMode('paused'); };
+  const resume = () => { pausedRef.current = false; if (pausedModeRef.current === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else if (streamRef.current) setMode('preview'); else void startCamera(); };
+  const launchDemo = () => { teardown(); pausedRef.current = false; setDelegate(null); setTrackingError(''); updateTrackingStatus('searching'); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
   const reset = () => { changeReps(0); setElapsed(0); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase(state === 'demo' ? 'Demo mode · tap when you complete a rep' : 'Find a comfortable space'); };
   const time = `${Math.floor(elapsed/60).toString().padStart(2,'0')}:${(elapsed%60).toString().padStart(2,'0')}`;
-  const active = state === 'live' || state === 'demo';
+  const active = state === 'live' || state === 'demo' || state === 'preview';
   return <section aria-label="Movement camera coach">
     <div className="card" style={{padding:14}}>
       <label className="eyebrow" htmlFor="exercise-choice">Choose a movement</label>
@@ -347,7 +405,7 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         <canvas ref={canvasRef} aria-hidden="true" />
         {!active && <div style={{position:'absolute',inset:0,zIndex:1,display:'grid',placeItems:'center',background:'linear-gradient(145deg,#254b60,#142f3f)'}}>
           <div style={{textAlign:'center',padding:20,maxWidth:280}}>
-            {state === 'loading' ? <><div className="camera-status" style={{display:'inline-flex'}}><Camera size={15}/> Starting camera</div><p style={{color:'#e6eee9'}}>Connecting securely to your camera and coach…</p></> :
+            {state === 'loading' ? <><div className="camera-status" style={{display:'inline-flex'}}><Camera size={15}/> Starting camera</div><p style={{color:'#e6eee9'}}>Allow camera access in your browser’s permission prompt. Your video will appear here.</p><button className="button button-secondary" onClick={stop}>Cancel</button></> :
             state === 'error' ? <><div className="camera-status" style={{display:'inline-flex'}}>Camera unavailable</div><p style={{lineHeight:1.5,color:'#fff6ea'}}>{error}</p><button className="button button-secondary" onClick={() => void startCamera()}><RotateCcw size={16}/> Retry camera</button><button className="button" style={{marginTop:9,background:'#a4ddbd',color:'#17314d'}} onClick={launchDemo}>Use Demo Mode</button></> :
             state === 'paused' ? <><div className="camera-status" style={{display:'inline-flex'}}>Paused</div><p style={{color:'#e6eee9'}}>Take your time. Your rep count is saved.</p><button className="button button-secondary" onClick={resume}><Play size={16}/> Resume</button></> :
             <><div style={{width:60,height:60,border:'1px solid #ffffff77',borderRadius:'50%',display:'grid',placeItems:'center',margin:'0 auto 12px',color:'#a9edcf'}}><UserRound size={27}/></div><strong style={{fontSize:19}}>Make room to move</strong><p style={{lineHeight:1.5,color:'#e3eee8'}}>Bayti uses your camera to follow body landmarks and count movement reps. Video stays on this device and is not recorded or uploaded.</p>
@@ -357,18 +415,24 @@ export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {
         </div>}
         <div className="camera-overlay">
           <div className="camera-overlay-left">
-            <span className="camera-status"><span style={{width:8,height:8,background:active?'#9de1b6':'#d9c8a5',borderRadius:'50%'}} />{state === 'demo' ? 'Demo mode' : state === 'live' ? 'Live camera' : 'Ready'}</span>
+            <span className="camera-status"><span style={{width:8,height:8,background:active?'#9de1b6':'#d9c8a5',borderRadius:'50%'}} />{state === 'demo' ? 'Demo mode' : state === 'live' ? 'Live camera' : state === 'preview' ? 'Camera on' : state === 'paused' ? 'Paused' : 'Ready'}</span>
             {state === 'live' && <span className={`tracking-chip tracking-${trackingStatus}`} aria-live="polite">
               <span className="tracking-dot"/>{trackingStatus === 'tracking' ? `Tracking · ${delegate ?? 'AI'}` : trackingStatus === 'lost' ? 'Step back' : 'Finding you'}
             </span>}
+            {state === 'preview' && <span className="tracking-chip" role="status"><span className="tracking-dot"/>{trackingError ? 'Tracking off' : 'Loading coach'}</span>}
           </div>
           <span className="timer-row"><Timer size={14}/>{time}</span>
         </div>
         <div className="camera-bottom">
           <div><div className="rep-count">{reps}</div><div style={{fontSize:11,fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase'}}>reps · {phase}</div></div>
-          {active && <div className="advice-pill" key={adviceIndex}>{ADVICE[adviceIndex]}</div>}
+           {state === 'preview' ? <div className="advice-pill">{trackingError ? 'Reps are not being counted' : 'Loading movement tracking…'}</div> : active && <div className="advice-pill" key={adviceIndex}>{ADVICE[adviceIndex]}</div>}
         </div>
       </div>
+      {trackingError && <div className="tracking-error" role="alert">
+        <p>{trackingError}</p>
+        <button className="button button-secondary" onClick={() => void startCamera()}><RotateCcw size={16}/> Retry tracking</button>
+        <button className="button button-secondary" onClick={launchDemo}>Use Demo Mode</button>
+      </div>}
       {state === 'demo' && <button className="button full" style={{marginTop:12,background:'#d9eee2',color:'#17264D'}} onClick={() => { countRep(); updatePhase('Demo rep counted'); }}>Tap to count</button>}
       {active && <div className="camera-controls" style={{marginTop:12}}>
         <button onClick={pause}><Pause size={14}/> Pause</button>

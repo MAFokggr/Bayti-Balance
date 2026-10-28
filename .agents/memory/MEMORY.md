@@ -1,0 +1,1 @@
+- [Camera verification](camera-verification.md) — distinguish interactive startup, synthetic webcam checks, and physical-device validation.

@@ -90,7 +90,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .camera-panel { overflow:hidden; border-radius:24px; background:#122d40; color:#fff; position:relative; min-height:430px; }
 .camera-panel.is-idle .camera-bottom { display:none; }
 .camera-panel video,.camera-panel canvas { position:absolute;inset:0;width:100%;height:100%;object-fit:cover; transform:scaleX(-1); }
-.camera-panel canvas { z-index:2; }
+.camera-panel canvas { z-index:2; pointer-events:none; }
 .camera-overlay { position:absolute;z-index:3;left:12px;right:12px;top:12px;display:flex;justify-content:space-between;align-items:center; }
 .camera-overlay-left { display:flex;align-items:center;gap:6px;min-width:0; }
 .camera-status { background:#17314dcc; padding:8px 11px; border-radius:99px; font-size:12px;font-weight:900; display:flex;align-items:center;gap:6px; }
@@ -98,6 +98,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .tracking-dot { width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:#f6d477; }
 .tracking-tracking .tracking-dot { background:#a9d9b8; }
 .tracking-lost .tracking-dot { background:#f59b7a; }
+.tracking-error { margin-top:12px;padding:12px;border:1px solid #d6b77b;background:#fff5df;border-radius:14px;color:#17314d;font-size:13px;line-height:1.5; }
+.tracking-error p { margin:0 0 10px; }
+.tracking-error .button { margin:4px 6px 0 0;font-size:12px; }
 .camera-bottom { position:absolute;z-index:3;bottom:12px;left:12px;right:12px;display:flex;align-items:flex-end;justify-content:space-between; }
 .rep-count { font-size:42px;line-height:1;font-weight:900; letter-spacing:-.06em; }
 .advice-pill { background:#fffdf1ed;color:#17314d;padding:10px 13px;border-radius:14px;font-weight:900;font-size:13px;max-width:190px;transition:opacity .3s; }
