@@ -1,0 +1,283 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Camera, Pause, Play, RotateCcw, Square, Timer, UserRound } from 'lucide-react';
+
+export const CAMERA_RULES = {
+  squatDownKneeAngleDeg: 110,
+  squatUpKneeAngleDeg: 160,
+  sideStepFraction: 0.12,
+  jumpRiseFraction: 0.06,
+  visibilityMinimum: 0.5,
+  visibilityTimeoutMs: 2000,
+  repCooldownMs: 500,
+  calibrationMs: 2000,
+  targetFps: 20,
+} as const;
+
+const ADVICE = ['Keep your back tall', 'Move a little slower', 'Raise your arms higher', 'Good form', 'Great control', 'Take a short break', 'Keep your body centered'];
+const BONES: [number, number][] = [[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[29,31],[24,26],[26,28],[28,30],[30,32]];
+type Exercise = 'squat' | 'arm raise' | 'side step' | 'jump' | 'high knees';
+type Props = { member: string; onRep: (exercise: string, reps: number) => void; initialCount?: number; initialCounts?: Record<string, number> };
+type Point = { x: number; y: number; visibility?: number };
+
+export function CameraCoach({ member, onRep, initialCount = 0, initialCounts = {} }: Props) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const detectorRef = useRef<any>(null);
+  const rafRef = useRef<number>(0);
+  const frameAtRef = useRef(0);
+  const historyRef = useRef<Point[][]>([]);
+  const lostAtRef = useRef(0);
+  const cooldownRef = useRef(0);
+  const phaseRef = useRef('Ready');
+  const baselineRef = useRef<number | null>(null);
+  const calibrationStartedRef = useRef<number | null>(null);
+  const centerRef = useRef<number | null>(null);
+  const stateRef = useRef(false);
+  const [exercise, setExercise] = useState<Exercise>('squat');
+  const exerciseRef = useRef<Exercise>('squat');
+  exerciseRef.current = exercise;
+  const onRepRef = useRef(onRep);
+  onRepRef.current = onRep;
+  const [permissionExplained, setPermissionExplained] = useState(false);
+  const [state, setState] = useState<'ready'|'loading'|'live'|'paused'|'error'|'demo'>('ready');
+  const [error, setError] = useState('');
+  const [reps, setReps] = useState(initialCounts.squat ?? initialCount);
+  const repsRef = useRef(initialCounts.squat ?? initialCount);
+  const [phase, setPhase] = useState('Ready');
+  const [elapsed, setElapsed] = useState(0);
+  const [adviceIndex, setAdviceIndex] = useState(3);
+
+  const setMode = (mode: typeof state) => { stateRef.current = mode === 'live'; setState(mode); };
+  const teardown = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+    detectorRef.current?.close?.();
+    detectorRef.current = null;
+  }, []);
+  useEffect(() => {
+    if (state === 'live' || state === 'demo') {
+      const tick = window.setInterval(() => setElapsed((value) => value + 1), 1000);
+      const tips = window.setInterval(() => setAdviceIndex((value) => (value + 1) % ADVICE.length), 4000);
+      return () => { window.clearInterval(tick); window.clearInterval(tips); };
+    }
+    return undefined;
+  }, [state]);
+  useEffect(() => {
+    const visibility = () => {
+      if (document.hidden && stateRef.current) {
+        stateRef.current = false;
+        setState('paused');
+      }
+    };
+    document.addEventListener('visibilitychange', visibility);
+    return () => { document.removeEventListener('visibilitychange', visibility); teardown(); };
+  }, [teardown]);
+  useEffect(() => {
+    const savedCount = initialCounts[exercise] ?? 0;
+    repsRef.current = savedCount;
+    setReps(savedCount);
+  }, [member, exercise]);
+  const changeReps = useCallback((next: number) => {
+    repsRef.current = next;
+    setReps(next);
+    onRepRef.current(exerciseRef.current, next);
+  }, []);
+  const updatePhase = (value: string) => { phaseRef.current = value; setPhase(value); };
+
+  const countRep = useCallback(() => {
+    if (Date.now() - cooldownRef.current < CAMERA_RULES.repCooldownMs) return;
+    cooldownRef.current = Date.now();
+    const next = repsRef.current + 1;
+    repsRef.current = next;
+    setReps(next);
+    onRepRef.current(exerciseRef.current, next);
+  }, []);
+
+  const analyze = useCallback((landmarks: Point[], width: number, height: number) => {
+    const activeExercise = exerciseRef.current;
+    const visible = (i: number) => landmarks[i] && (landmarks[i].visibility ?? 1) >= CAMERA_RULES.visibilityMinimum;
+    const midpoint = (a: Point, b: Point) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    const angle = (a: Point, b: Point, c: Point) => {
+      const radians = Math.atan2(c.y - b.y, c.x - b.x) - Math.atan2(a.y - b.y, a.x - b.x);
+      return Math.abs((radians * 180 / Math.PI + 360) % 360 - 180);
+    };
+    let ready = false;
+    if (activeExercise === 'squat' && [23,25,27].every(visible)) {
+      const deg = angle(landmarks[23], landmarks[25], landmarks[27]);
+      if (deg < CAMERA_RULES.squatDownKneeAngleDeg) { if (!phaseRef.current.includes('Down')) updatePhase('Down · hold'); }
+      else if (deg > CAMERA_RULES.squatUpKneeAngleDeg && phaseRef.current.includes('Down')) { updatePhase('Stand tall'); ready = true; }
+    } else if (activeExercise === 'arm raise' && [11,12,15,16,23,24].every(visible)) {
+      const shoulder = midpoint(landmarks[11], landmarks[12]);
+      const hip = midpoint(landmarks[23], landmarks[24]);
+      const wrist = midpoint(landmarks[15], landmarks[16]);
+      if (wrist.y < shoulder.y) { if (!phaseRef.current.includes('Raised')) updatePhase('Arms raised'); }
+      else if (wrist.y > hip.y && phaseRef.current.includes('Raised')) { updatePhase('Arms down'); ready = true; }
+    } else if (activeExercise === 'side step' && [23,24].every(visible)) {
+      const x = midpoint(landmarks[23], landmarks[24]).x;
+      if (centerRef.current === null) centerRef.current = x;
+      if (!phaseRef.current.includes('Out') && Math.abs(x - centerRef.current) > CAMERA_RULES.sideStepFraction) updatePhase('Step out');
+       else if (phaseRef.current.includes('Out') && Math.abs(x - centerRef.current) < CAMERA_RULES.sideStepFraction) { updatePhase('Back to center'); ready = true; }
+    } else if (activeExercise === 'jump' && [23,24].every(visible)) {
+      const y = midpoint(landmarks[23], landmarks[24]).y;
+      if (baselineRef.current === null) { baselineRef.current = y; calibrationStartedRef.current = Date.now(); updatePhase('Calibrating · stand still'); }
+      else if (calibrationStartedRef.current !== null && Date.now() - calibrationStartedRef.current < CAMERA_RULES.calibrationMs) {
+        baselineRef.current = baselineRef.current * .92 + y * .08;
+        updatePhase('Calibrating · stand still');
+      }
+      else if (y < baselineRef.current - CAMERA_RULES.jumpRiseFraction) { if (!phaseRef.current.includes('Air')) updatePhase('In the air'); }
+      else if (phaseRef.current.includes('Air')) { updatePhase('Landed'); ready = true; }
+    } else if (activeExercise === 'high knees' && [23,24,25,26].every(visible)) {
+      const leftUp = landmarks[25].y < landmarks[23].y;
+      const rightUp = landmarks[26].y < landmarks[24].y;
+      if (leftUp !== rightUp) {
+        const side = leftUp ? 'left' : 'right';
+        if (phaseRef.current !== `Knee ${side}`) { updatePhase(`Knee ${side}`); ready = true; }
+      }
+    }
+    if (ready) countRep();
+    void width; void height;
+  }, [countRep]);
+
+  const draw = useCallback((points: Point[], w: number, h: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, w, h);
+    ctx.lineWidth = Math.max(2, w / 200);
+    ctx.strokeStyle = '#a9edcf';
+    ctx.fillStyle = '#fff5c5';
+    BONES.forEach(([a,b]) => {
+      if ((points[a]?.visibility ?? 1) < CAMERA_RULES.visibilityMinimum || (points[b]?.visibility ?? 1) < CAMERA_RULES.visibilityMinimum) return;
+      ctx.beginPath(); ctx.moveTo(points[a].x*w, points[a].y*h); ctx.lineTo(points[b].x*w, points[b].y*h); ctx.stroke();
+    });
+    points.forEach((p) => {
+      if ((p.visibility ?? 1) < CAMERA_RULES.visibilityMinimum) return;
+      ctx.beginPath(); ctx.arc(p.x*w,p.y*h,Math.max(3,w/120),0,Math.PI*2);ctx.fill();
+    });
+  }, []);
+
+  const frameLoop = useCallback(() => {
+    if (!stateRef.current || !videoRef.current || !detectorRef.current) return;
+    const now = performance.now();
+    if (now - frameAtRef.current >= 1000 / CAMERA_RULES.targetFps && videoRef.current.readyState >= 2) {
+      frameAtRef.current = now;
+      try {
+        const result = detectorRef.current.detectForVideo(videoRef.current, now);
+        const raw: Point[] | undefined = result.landmarks?.[0];
+        const hasVisiblePose = raw && raw.filter((p) => (p.visibility ?? 1) >= CAMERA_RULES.visibilityMinimum).length >= 8;
+        if (raw && hasVisiblePose) {
+          const wasLost = lostAtRef.current > 0 && Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs;
+          lostAtRef.current = 0;
+          if (wasLost) {
+            updatePhase('Ready');
+            cooldownRef.current = Date.now();
+            historyRef.current = [];
+          }
+          historyRef.current = [...historyRef.current, raw].slice(-5);
+          const smoothed = raw.map((p, i) => {
+            const samples = historyRef.current.map((frame) => frame[i]).filter((sample) => sample && (sample.visibility ?? 1) >= CAMERA_RULES.visibilityMinimum);
+            if (samples.length === 0) return p;
+            return {
+              ...p,
+              x: samples.reduce((sum, sample) => sum + sample.x, 0) / samples.length,
+              y: samples.reduce((sum, sample) => sum + sample.y, 0) / samples.length,
+            };
+          });
+          draw(smoothed, videoRef.current.videoWidth, videoRef.current.videoHeight);
+          analyze(smoothed, videoRef.current.videoWidth, videoRef.current.videoHeight);
+        } else {
+          if (!lostAtRef.current) lostAtRef.current = Date.now();
+          if (Date.now() - lostAtRef.current >= CAMERA_RULES.visibilityTimeoutMs) updatePhase('Step back so we can see you');
+          historyRef.current = [];
+          draw([], videoRef.current.videoWidth, videoRef.current.videoHeight);
+        }
+      } catch {
+        teardown(); setError('The pose model stopped responding. Try again, or use Demo Mode.'); setMode('error'); return;
+      }
+    }
+    rafRef.current = requestAnimationFrame(frameLoop);
+  }, [analyze, draw, teardown]);
+
+  const startCamera = async () => {
+    teardown(); setError(''); setMode('loading'); setPermissionExplained(true);
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access is not available in this browser. Use a secure connection or try Demo Mode.');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+      streamRef.current = stream;
+      if (!videoRef.current) throw new Error('Camera preview could not be opened. Please retry.');
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+      const vision = await import('@mediapipe/tasks-vision') as any;
+      const files = await vision.FilesetResolver.forVisionTasks('/wasm/');
+      detectorRef.current = await vision.PoseLandmarker.createFromOptions(files, {
+        baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'GPU' },
+        runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
+      }).catch(async () => vision.PoseLandmarker.createFromOptions(files, {
+        baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate: 'CPU' },
+        runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .5, minPosePresenceConfidence: .5,
+      }));
+      frameAtRef.current = performance.now();
+      baselineRef.current = null; centerRef.current = null; historyRef.current = [];
+      updatePhase('Find a comfortable space');
+      setMode('live');
+      rafRef.current = requestAnimationFrame(frameLoop);
+    } catch (cause) {
+      teardown();
+      const name = (cause as { name?: string })?.name;
+      const message = name === 'NotAllowedError' ? 'Camera permission was denied. Allow camera access in your browser settings, then retry.' :
+        name === 'NotFoundError' ? 'No camera was found on this device. Connect a camera or choose Demo Mode.' :
+        name === 'NotReadableError' ? 'The camera is already being used by another app. Close it and retry, or choose Demo Mode.' :
+        (cause as Error)?.message || 'The camera or pose model could not start. Check the local model files, then retry or choose Demo Mode.';
+      setError(message); setMode('error');
+    }
+  };
+  const stop = () => { teardown(); setMode('ready'); updatePhase('Ready'); setElapsed(0); };
+  const pause = () => { stateRef.current = false; setMode('paused'); };
+  const resume = () => { if (state === 'demo') setMode('demo'); else if (streamRef.current && detectorRef.current) { setMode('live'); rafRef.current = requestAnimationFrame(frameLoop); } else void startCamera(); };
+  const launchDemo = () => { teardown(); setError(''); setMode('demo'); updatePhase('Demo mode · tap when you complete a rep'); };
+  const reset = () => { changeReps(0); setElapsed(0); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase(state === 'demo' ? 'Demo mode · tap when you complete a rep' : 'Find a comfortable space'); };
+  const time = `${Math.floor(elapsed/60).toString().padStart(2,'0')}:${(elapsed%60).toString().padStart(2,'0')}`;
+  const active = state === 'live' || state === 'demo';
+  return <section aria-label="Movement camera coach">
+    <div className="card" style={{padding:14}}>
+      <label className="eyebrow" htmlFor="exercise-choice">Choose a movement</label>
+      <select id="exercise-choice" className="exercise-select" value={exercise} onChange={(e) => { const nextExercise = e.target.value as Exercise; exerciseRef.current = nextExercise; setExercise(nextExercise); const savedCount = initialCounts[nextExercise] ?? 0; repsRef.current = savedCount; setReps(savedCount); baselineRef.current = null; calibrationStartedRef.current = null; centerRef.current = null; updatePhase('Ready'); }}>
+        {['squat','arm raise','side step','jump','high knees'].map((item) => <option key={item} value={item}>{item.replace(/\b\w/g,(c)=>c.toUpperCase())}</option>)}
+      </select>
+      <div className={`camera-panel ${active ? 'is-active' : 'is-idle'}`} style={{marginTop:12}}>
+        <video ref={videoRef} muted playsInline aria-label="Mirrored live camera preview" />
+        <canvas ref={canvasRef} aria-hidden="true" />
+        {!active && <div style={{position:'absolute',inset:0,zIndex:1,display:'grid',placeItems:'center',background:'linear-gradient(145deg,#254b60,#142f3f)'}}>
+          <div style={{textAlign:'center',padding:20,maxWidth:280}}>
+            {state === 'loading' ? <><div className="camera-status" style={{display:'inline-flex'}}><Camera size={15}/> Starting camera</div><p style={{color:'#e6eee9'}}>Connecting securely to your camera and coach…</p></> :
+            state === 'error' ? <><div className="camera-status" style={{display:'inline-flex'}}>Camera unavailable</div><p style={{lineHeight:1.5,color:'#fff6ea'}}>{error}</p><button className="button button-secondary" onClick={() => void startCamera()}><RotateCcw size={16}/> Retry camera</button><button className="button" style={{marginTop:9,background:'#a4ddbd',color:'#17314d'}} onClick={launchDemo}>Use Demo Mode</button></> :
+            state === 'paused' ? <><div className="camera-status" style={{display:'inline-flex'}}>Paused</div><p style={{color:'#e6eee9'}}>Take your time. Your rep count is saved.</p><button className="button button-secondary" onClick={resume}><Play size={16}/> Resume</button></> :
+            <><div style={{width:60,height:60,border:'1px solid #ffffff77',borderRadius:'50%',display:'grid',placeItems:'center',margin:'0 auto 12px',color:'#a9edcf'}}><UserRound size={27}/></div><strong style={{fontSize:19}}>Make room to move</strong><p style={{lineHeight:1.5,color:'#e3eee8'}}>Bayti uses your camera to follow body landmarks and count movement reps. Video stays on this device and is not recorded or uploaded.</p>
+              <button className="button button-secondary" onClick={() => permissionExplained ? void startCamera() : (setPermissionExplained(true), void startCamera())}><Camera size={16}/> Enable camera</button>
+              <button className="button" style={{display:'flex',margin:'9px auto 0',background:'transparent',border:'1px solid #ffffff77'}} onClick={launchDemo}>Try Demo Mode</button></>}
+          </div>
+        </div>}
+        <div className="camera-overlay">
+          <span className="camera-status"><span style={{width:8,height:8,background:active?'#9de1b6':'#d9c8a5',borderRadius:'50%'}} />{state === 'demo' ? 'Demo mode' : state === 'live' ? 'Live camera' : 'Ready'}</span>
+          <span className="timer-row"><Timer size={14}/>{time}</span>
+        </div>
+        <div className="camera-bottom">
+          <div><div className="rep-count">{reps}</div><div style={{fontSize:11,fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase'}}>reps · {phase}</div></div>
+          {active && <div className="advice-pill" key={adviceIndex}>{ADVICE[adviceIndex]}</div>}
+        </div>
+      </div>
+      {state === 'demo' && <button className="button full" style={{marginTop:12,background:'#d9eee2',color:'#17264D'}} onClick={() => { countRep(); updatePhase('Demo rep counted'); }}>Tap to count</button>}
+      {active && <div className="camera-controls" style={{marginTop:12}}>
+        <button onClick={pause}><Pause size={14}/> Pause</button>
+        <button onClick={reset}><RotateCcw size={14}/> Reset reps</button>
+        <button onClick={stop}><Square size={14}/> Stop</button>
+      </div>}
+      {state === 'ready' && !permissionExplained && <p className="copy" style={{fontSize:12,margin:'10px 2px 0'}}>Your camera is not on yet. We explain why it’s needed before asking for access.</p>}
+      <p className="copy" style={{fontSize:11,margin:'10px 2px 0'}}>Move at your own pace. Stop if something hurts. Bayti Balance is an educational prototype. It does not diagnose medical conditions or replace advice from a qualified professional.</p>
+    </div>
+  </section>;
+}

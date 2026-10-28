@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Bayti Balance"
+description = "A UAE family wellbeing app prototype for building a shared healthy day with personalized support for each family member. This first version focuses on a safe, clearly labeled movement camera demo and navigation shells for the remaining sections."
+version = "1.0.0"
+id = "artifacts/bayti-balance"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19596
+
+[services.development]
+run = "pnpm --filter @workspace/bayti-balance run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/bayti-balance", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/bayti-balance/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19596"
+BASE_PATH = "/"
