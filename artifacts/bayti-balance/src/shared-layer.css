@@ -169,5 +169,34 @@
 .sl-ai { background:var(--paper); border:1.5px solid var(--line); border-radius:18px; padding:12px; display:flex; flex-direction:column; gap:6px; font-size:12px; font-weight:900; }
 .sl-ai small { font-weight:600; color:#5b6f80; font-size:10.5px; line-height:1.4; }
 
+/* Family Game Day */
+.gd-page { padding:16px 19px 30px; color:var(--navy); }
+.gd-hero { padding:23px 20px; border-radius:28px; background:#17264d; color:#fffaf0; position:relative; overflow:hidden; }
+.gd-hero:after { content:""; position:absolute; width:190px;height:190px;border-radius:50%;right:-74px;bottom:-105px;background:#78d5c555; }
+.gd-hero h1 { font-size:36px;line-height:1.03;letter-spacing:-.06em;margin:14px 0 8px;font-weight:900; }
+.gd-hero p { color:#e5e9dc;line-height:1.5;font-size:13px;max-width:280px; }
+.gd-card { background:var(--paper);border:1.5px solid var(--line);border-radius:22px;padding:16px; }
+.gd-stack { display:grid;gap:10px; }
+.gd-game { display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:12px;border:1.5px solid var(--line);background:var(--paper);border-radius:20px;padding:13px;text-align:left;color:var(--navy);width:100%; }
+.gd-game:hover,.gd-player.selected { border-color:var(--navy);box-shadow:inset 0 0 0 1px var(--navy); }
+.gd-game-icon { width:52px;height:52px;border-radius:17px;display:grid;place-items:center;font-size:25px; }
+.gd-game small,.gd-muted { color:#647789;font-size:11px;line-height:1.45; }
+.gd-badge { display:inline-flex;background:#f5edda;border-radius:99px;padding:5px 8px;font-size:10px;font-weight:900; }
+.gd-progress {display:flex;gap:5px;margin:10px 0 16px}
+.gd-progress i {height:5px;flex:1;border-radius:9px;background:#e3ddd1}.gd-progress i.on{background:#317b71}
+.gd-player { display:flex;align-items:center;gap:9px;padding:10px;border:1.5px solid var(--line);border-radius:16px;background:var(--paper);width:100%;text-align:left;color:var(--navy); }
+.gd-avatar {width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:900;border:2px solid var(--navy)}
+.gd-choice { min-height:46px;border:1.5px solid var(--line);background:var(--paper);border-radius:14px;padding:10px;color:var(--navy);font-weight:800; }
+.gd-choice.active {background:#e2f2eb;border-color:#317b71}
+.gd-score {display:flex;justify-content:space-between;align-items:center;font-weight:900;padding:10px 12px;border-radius:15px;background:#f3efe4}
+.gd-oasis {display:flex;gap:5px;align-items:end;min-height:92px;border-radius:17px;padding:12px;background:linear-gradient(#d9f0e6,#f5e5c9)}
+.gd-oasis span {font-size:27px;filter:saturate(.7)}
+.gd-scenario {background:#fff2c9;border:1px solid #e9d291;border-radius:18px;padding:16px;animation:gd-card-in .26s ease-out both}
+@keyframes gd-card-in {from{opacity:.55;transform:translateY(5px) rotate(-.4deg)}to{opacity:1;transform:translateY(0) rotate(0)}}
+.gd-input {width:100%;border:1.5px solid #d6d0c3;border-radius:12px;padding:11px;background:var(--paper);color:var(--navy);font-weight:800}
+.gd-water {background:#e2f5f2;border-radius:16px;padding:12px;font-size:12px;line-height:1.45}
+.gd-toast {padding:10px;border-radius:12px;background:#fff0e9;color:#7c3421;font-size:12px}
+@media(max-width:360px){.gd-page{padding-left:15px;padding-right:15px}.gd-hero h1{font-size:32px}}
+
 @media (max-width:360px) { .sl-adapt-grid, .sl-pillars { gap:7px; } .sl-q { font-size:24px; } }
 @media (prefers-reduced-motion:reduce) { .sl-pillar-icon, .sl-star, .sl-arrow, .sl-scan:after { animation:none!important; } }

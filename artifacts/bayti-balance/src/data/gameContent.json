@@ -1,0 +1,50 @@
+{
+  "missions": [
+    {"id":"three-passes","text":"Three passes first: every goal needs 3 passes before the shot.","emoji":"⚽"},
+    {"id":"left-foot","text":"Left foot day: only left-foot goals count.","emoji":"🦶"},
+    {"id":"everyone-touches","text":"Everyone touches: every teammate touches the ball before a goal.","emoji":"🤝"},
+    {"id":"slow-motion","text":"Slow motion: walk speed for 1 minute.","emoji":"🐢"},
+    {"id":"youngest-first","text":"Youngest first: the youngest player takes the first pass.","emoji":"🌱"},
+    {"id":"cone-shot","text":"Cone shot: shoot from behind the cone for double points.","emoji":"🔺"},
+    {"id":"name-a-club","text":"Name a club: before a kick, say a UAE club (Al Ain, Al Wahda, Al Jazira).","emoji":"🏟️"},
+    {"id":"goalie-swap","text":"Goalie swap: the goalkeeper changes after each goal.","emoji":"🧤"},
+    {"id":"golden-minute","text":"Golden minute: goals in the last minute count double.","emoji":"⏱️"},
+    {"id":"yalla-chant","text":"Yalla chant: the scoring team shouts “Yalla!” together.","emoji":"📣"}
+  ],
+  "riddles": [
+    {"id":"dallah","question":"I pour hospitality in tiny cups and have a long spout.","answer":"Dallah","arabic":"دلة","meaning":"coffee pot","emoji":"☕"},
+    {"id":"tamr","question":"I am sweet, I grow on a palm and I go with coffee.","answer":"Tamr","arabic":"تمر","meaning":"dates","emoji":"🌴"},
+    {"id":"saqr","question":"I fly high, wear a little hood and live with my Emirati friend.","answer":"Saqr","arabic":"صقر","meaning":"falcon","emoji":"🦅"},
+    {"id":"jalboot","question":"I have no legs but I cross the sea with a big sail.","answer":"Jalboot / dhow","arabic":"جالبوت","meaning":"traditional sailing boat","emoji":"⛵"},
+    {"id":"lulu","question":"I hide in a shell under the sea and become a treasure.","answer":"Lulu","arabic":"لؤلؤ","meaning":"pearl","emoji":"🦪"},
+    {"id":"jamal","question":"I am the ship of the desert and I walk far in the sand.","answer":"Jamal","arabic":"جمل","meaning":"camel","emoji":"🐪"},
+    {"id":"abra","question":"I am a small wooden boat that carries people across the Creek.","answer":"Abra","arabic":"عبرة","meaning":"small passenger boat","emoji":"🚤"},
+    {"id":"majlis","question":"I am the room where family and guests sit, talk and drink coffee.","answer":"Majlis","arabic":"مجلس","meaning":"family gathering room","emoji":"🛋️"}
+  ],
+  "heritagePairs": [
+    {"id":"dallah","name":"Dallah","emoji":"☕","fact":"Used to pour Arabic coffee for guests."},
+    {"id":"saqr","name":"Saqr","emoji":"🦅","fact":"The falcon is a national symbol of the UAE."},
+    {"id":"dhow","name":"Dhow","emoji":"⛵","fact":"Wooden boats used for fishing, pearling and trade."},
+    {"id":"dates","name":"Dates","emoji":"🌴","fact":"A traditional sweet served with coffee."},
+    {"id":"camel","name":"Camel","emoji":"🐪","fact":"Helped people travel and carry goods across deserts."},
+    {"id":"pearl","name":"Pearl","emoji":"🦪","fact":"Pearl diving was an important heritage trade."},
+    {"id":"abra","name":"Abra","emoji":"🚤","fact":"A small boat that crosses Dubai Creek."},
+    {"id":"majlis","name":"Majlis","emoji":"🛋️","fact":"A place for family, guests and good conversation."}
+  ],
+  "pearls": {
+    "small":{"points":1,"emoji":"🫧","tales":["The old nakhuda smiles: a pearl in the net!","A tiny pearl glimmers in the blue.","A calm tide reveals a little treasure."]},
+    "shiny":{"points":2,"emoji":"✨","tales":["A shiny pearl catches the sun.","The diver finds a bright treasure in the sand.","A silver shimmer rises from the sea."]},
+    "golden":{"points":3,"emoji":"🌟","tales":["A golden pearl glows in the shell.","A rare treasure makes the crew cheer.","The sea gives up a golden prize."]},
+    "chest":{"points":5,"emoji":"🧰","tales":["A treasure chest rests beneath the dhow.","The crew discovers a chest of pearls.","A hidden chest brings a great haul."]},
+    "jellyfish":{"points":0,"emoji":"🪼","tales":["Oh no, a jellyfish drifts by. Pile gone!","A jellyfish surprises the diver; this turn's pile is lost.","The diver spots a jellyfish and returns to shore."]}
+  },
+  "pearlDeckComposition":{"small":8,"shiny":4,"golden":2,"chest":2,"jellyfish":8},
+  "manners": [
+    {"id":"guest","scenario":"A guest arrives.","choices":["Keep playing on your phone","Stand, say “Hayyak Allah” and offer a seat","Ask them to wait outside"],"best":"B","reason":"Welcoming guests warmly is a big part of Emirati hospitality.","emoji":"🫖"},
+    {"id":"coffee","scenario":"You have had enough Arabic coffee.","choices":["Keep the cup full","Gently shake the small cup and hand it back","Put it on the floor"],"best":"B","reason":"Gently shaking the cup is a polite signal that you have had enough.","emoji":"☕"},
+    {"id":"dates","scenario":"Dates and coffee are offered.","choices":["Take with your right hand and say thank you","Grab with both hands","Ignore it"],"best":"A","reason":"Accepting with the right hand and thanking your host shows respect.","emoji":"🌴"},
+    {"id":"elder","scenario":"An elder enters the room.","choices":["Keep sitting and looking down","Stand to greet them","Leave the room"],"best":"B","reason":"Standing to greet an elder is a thoughtful sign of respect.","emoji":"🤝"},
+    {"id":"dinner","scenario":"Dinner is served.","choices":["Start eating before anyone","Wait for the elder or host to start","Take the biggest piece"],"best":"B","reason":"Waiting for the host or elder is considerate at a shared meal.","emoji":"🍽️"},
+    {"id":"farewell","scenario":"Your guest is leaving.","choices":["Walk them to the door and say “Fi amanillah”","Say nothing","Close the door fast"],"best":"A","reason":"A warm farewell helps guests feel welcome until they leave.","emoji":"🚪"}
+  ]
+}

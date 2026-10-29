@@ -5,11 +5,10 @@ import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
 import { Route, Switch, useLocation, Router as WouterRouter, Link } from 'wouter';
-import { Activity, Check, ChevronDown, Home, MoonStar, TrendingUp, Utensils } from 'lucide-react';
+import { Activity, Check, ChevronDown, Droplets, Info, Trophy, Users } from 'lucide-react';
 import { useFamilyStore } from '@/hooks/use-family-store';
 import { dayKey } from '@/lib/family-data';
 import { Logo, MemberAvatar, StorageBanner } from '@/components/shared/kit';
-import WelcomePage from '@/pages/shared/WelcomePage';
 import RegisterPage from '@/pages/shared/RegisterPage';
 import WhoPage from '@/pages/shared/WhoPage';
 import HomePage from '@/pages/shared/HomePage';
@@ -19,11 +18,12 @@ import { CameraPage } from '@/pages/SectionShells';
 import RecoverPage from '@/pages/recover/RecoverPage';
 import MoveSection from '@/pages/move/MoveSection';
 import EatSection from '@/pages/eat/EatSection';
+import { AboutGameDay, CoolDownPage, GameDayRoute, PlayHub, ScoresPage } from '@/pages/game-day/GameDayPages';
 import './shared-layer.css';
 
 const queryClient = new QueryClient();
 const EXERCISES = ['squat', 'arm raise', 'side step', 'jump', 'high knees'];
-const NAV = [['/home', 'Home', Home], ['/move', 'Move', Activity], ['/eat', 'Eat', Utensils], ['/recover', 'Recover', MoonStar], ['/progress', 'Progress', TrendingUp]] as const;
+const NAV = [['/play', 'Play', Users], ['/move', 'Warm-up', Activity], ['/scores', 'Scores', Trophy], ['/cool-down', 'Cool-down', Droplets], ['/about', 'About', Info]] as const;
 
 function App() {
   const store = useFamilyStore();
@@ -31,7 +31,7 @@ function App() {
   const [location] = useLocation();
   const [familyOpen, setFamilyOpen] = useState(false);
   const isIntro = ['/', '/welcome', '/register', '/who'].includes(location);
-  const isShared = isIntro || ['/home', '/progress', '/about'].includes(location);
+  const isShared = isIntro || ['/home', '/progress', '/about', '/play', '/scores', '/cool-down', '/game-day'].includes(location);
   const today = dayKey();
   const initialCounts = Object.fromEntries(EXERCISES.map((ex) => [ex, data.reps[`${current.id}:${today}:${ex}`] ?? 0]));
 
@@ -45,8 +45,8 @@ function App() {
         </button>)}
       </div>}
       <Switch>
-        <Route path="/"><WelcomePage store={store} /></Route>
-        <Route path="/welcome"><WelcomePage store={store} /></Route>
+        <Route path="/"><PlayHub /></Route>
+        <Route path="/welcome"><PlayHub /></Route>
         <Route path="/register"><RegisterPage store={store} /></Route>
         <Route path="/who"><WhoPage store={store} /></Route>
         <Route path="/home"><HomePage store={store} /></Route>
@@ -55,7 +55,12 @@ function App() {
         <Route path="/eat/:section?"><EatSection store={store} /></Route>
         <Route path="/recover"><RecoverPage store={store} /></Route>
         <Route path="/progress"><ProgressPage store={store} /></Route>
-        <Route path="/about"><AboutPage store={store} /></Route>
+        <Route path="/about-original"><AboutPage store={store} /></Route>
+        <Route path="/play"><PlayHub /></Route>
+        <Route path="/game-day"><GameDayRoute store={store} /></Route>
+        <Route path="/scores"><ScoresPage /></Route>
+        <Route path="/cool-down"><CoolDownPage /></Route>
+        <Route path="/about"><AboutGameDay store={store} /></Route>
         <Route component={NotFound} />
       </Switch>
     </div>
@@ -65,7 +70,7 @@ function App() {
       </button>
       <nav className="bottom-nav" aria-label="Main navigation">
         {NAV.map(([href, label, I]) => {
-          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/'))) || (href === '/eat' && location.startsWith('/eat/'));
+          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/'))) || (href === '/play' && location === '/game-day') || (href === '/cool-down' && location === '/recover');
           return <Link key={href} href={href} className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-testid={`nav-${label.toLowerCase()}`}><I /><span>{label}</span></Link>;
         })}
       </nav>
