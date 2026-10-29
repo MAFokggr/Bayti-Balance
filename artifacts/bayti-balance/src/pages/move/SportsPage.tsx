@@ -10,7 +10,7 @@ export default function SportsPage({ ctx }: { ctx: MoveCtx }) {
   const [open, setOpen] = useState<string | null>('swimming');
   const hot = isHot(ctx.weather);
   return <main className="mv-page mv-sky motion-in">
-    <MoveHeader back="/move/gym" kicker="Sports" title={<>Play<br />something.</>} weather={ctx.weather} lead={hot ? 'Hot or dusty now: indoor options are marked suitable. Outdoor ones are better after sunset.' : 'Four family-friendly sports. Save the ones you want to try.'} />
+    <MoveHeader back="/move" kicker="Sports" title={<>Play<br />something.</>} weather={ctx.weather} lead={hot ? 'Hot or dusty now: indoor options are marked suitable. Outdoor ones are better after sunset.' : 'Four family-friendly sports. Save the ones you want to try.'} />
     <div className="mv-stack">{SPORTS.map((s, i) => {
       const saved = ctx.move.data.savedSports.includes(s.id);
       const ok = s.indoor || !hot;

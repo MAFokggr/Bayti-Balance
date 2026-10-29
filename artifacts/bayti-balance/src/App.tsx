@@ -19,6 +19,7 @@ import RecoverPage from '@/pages/recover/RecoverPage';
 import MoveSection from '@/pages/move/MoveSection';
 import EatSection from '@/pages/eat/EatSection';
 import { AboutGameDay, CoolDownPage, GameDayRoute, PlayHub, ScoresPage } from '@/pages/game-day/GameDayPages';
+import { RasmGuesserWindow } from '@/components/game-day/RasmGuesserWindow';
 import './shared-layer.css';
 
 const queryClient = new QueryClient();
@@ -31,7 +32,8 @@ function App() {
   const [location] = useLocation();
   const [familyOpen, setFamilyOpen] = useState(false);
   const isIntro = ['/', '/welcome', '/register', '/who'].includes(location);
-  const isShared = isIntro || ['/home', '/progress', '/about', '/play', '/scores', '/cool-down', '/game-day'].includes(location);
+  const isShared = isIntro || ['/home', '/progress', '/about', '/play', '/scores', '/cool-down', '/game-day', '/sketch/drawer', '/sketch/guesser'].includes(location);
+  const isGuesser = location === '/sketch/guesser';
   const today = dayKey();
   const initialCounts = Object.fromEntries(EXERCISES.map((ex) => [ex, data.reps[`${current.id}:${today}:${ex}`] ?? 0]));
 
@@ -58,19 +60,21 @@ function App() {
         <Route path="/about-original"><AboutPage store={store} /></Route>
         <Route path="/play"><PlayHub /></Route>
         <Route path="/game-day"><GameDayRoute store={store} /></Route>
+        <Route path="/sketch/drawer"><GameDayRoute store={store} /></Route>
+        <Route path="/sketch/guesser"><RasmGuesserWindow /></Route>
         <Route path="/scores"><ScoresPage /></Route>
         <Route path="/cool-down"><CoolDownPage /></Route>
         <Route path="/about"><AboutGameDay store={store} /></Route>
         <Route component={NotFound} />
       </Switch>
     </div>
-    {location !== '/register' && <>
+    {location !== '/register' && !isGuesser && <>
       <button className="family-fab" onClick={() => setFamilyOpen(!familyOpen)} aria-expanded={familyOpen} aria-label={`Switch family member, current member ${current.name}`} title={`Current member: ${current.name}`} data-testid="button-member-switcher">
         <MemberAvatar member={current} size={30} /><ChevronDown size={12} />
       </button>
       <nav className="bottom-nav" aria-label="Main navigation">
         {NAV.map(([href, label, I]) => {
-          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/'))) || (href === '/play' && location === '/game-day') || (href === '/cool-down' && location === '/recover');
+          const active = location === href || (href === '/move' && (location === '/camera-test' || location.startsWith('/move/'))) || (href === '/play' && (location === '/game-day' || location === '/sketch/drawer')) || (href === '/cool-down' && location === '/recover');
           return <Link key={href} href={href} className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined} data-testid={`nav-${label.toLowerCase()}`}><I /><span>{label}</span></Link>;
         })}
       </nav>

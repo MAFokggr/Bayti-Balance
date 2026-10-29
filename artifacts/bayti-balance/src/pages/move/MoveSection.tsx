@@ -1,4 +1,4 @@
-import { Route, Switch } from 'wouter';
+import { Redirect, Route, Switch } from 'wouter';
 import type { FamilyStore } from '@/hooks/use-family-store';
 import { useMoveStore } from '@/hooks/use-move-store';
 import { useFamilyWeather } from '@/hooks/use-family-weather';
@@ -7,9 +7,6 @@ import type { MoveCtx } from '@/components/move/kit';
 import MoveLanding from './MoveLanding';
 import { OasisSetup, OasisTurn, OasisHandoff } from './OasisPages';
 import MirrorMoves from './MirrorMoves';
-import GymPlanPage from './GymPlanPage';
-import { ExercisePage, GymCameraPage } from './ExercisePages';
-import WalkingPage from './WalkingPage';
 import SportsPage from './SportsPage';
 import { GamesPage } from './GamesPage';
 import RabbitQuest from './RabbitQuest';
@@ -31,10 +28,10 @@ export default function MoveSection({ store }: { store: FamilyStore }) {
       <Route path="/move/oasis-parent"><OasisTurn ctx={ctx} role="parent" /></Route>
       <Route path="/move/handoff"><OasisHandoff ctx={ctx} /></Route>
       <Route path="/move/mirror"><MirrorMoves ctx={ctx} /></Route>
-      <Route path="/move/gym"><GymPlanPage ctx={ctx} /></Route>
-      <Route path="/move/exercise"><ExercisePage key={ctx.member.id} ctx={ctx} /></Route>
-      <Route path="/move/camera"><GymCameraPage key={ctx.member.id} ctx={ctx} /></Route>
-      <Route path="/move/walking"><WalkingPage key={ctx.member.id} ctx={ctx} /></Route>
+      <Route path="/move/gym"><Redirect to="/move" /></Route>
+      <Route path="/move/exercise"><Redirect to="/move" /></Route>
+      <Route path="/move/camera"><Redirect to="/camera-test" /></Route>
+      <Route path="/move/walking"><Redirect to="/move" /></Route>
       <Route path="/move/sports"><SportsPage ctx={ctx} /></Route>
       <Route path="/move/games"><GamesPage ctx={ctx} /></Route>
       <Route path="/move/rabbit"><RabbitQuest key={ctx.member.id} ctx={ctx} /></Route>

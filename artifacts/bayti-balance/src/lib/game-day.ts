@@ -1,5 +1,7 @@
+import { markHeadCard, tickHead, type HeadMark, type HeadState } from './head';
+import type { RasmState } from './rasm';
 export const GAME_DAY_KEY = 'bayti-game-day-v1';
-export type GameId = 'football' | 'hazawi' | 'heritage' | 'pearl' | 'manners';
+export type GameId = 'football' | 'hazawi' | 'heritage' | 'pearl' | 'manners' | 'rasm' | 'head';
 export type Stage = 'choose' | 'players' | 'ready' | 'content' | 'record' | 'results' | 'tie';
 export type Player = { id: string; name: string; avatar: string; color: string; team: 'A' | 'B' | null };
 export type GameResult = { id: string; game: GameId; title: string; winner: string; scores: Record<string, number>; points: number; at: string };
@@ -10,13 +12,16 @@ export type GameDayState = {
   pearlPile: number; banked: Record<string, number>; results: GameResult[];
   oasis: number; highHeat: boolean; paused: boolean; seconds: number; completedRounds: number;
   teamAssignment: boolean; tieStage: number; notice: string; resultSaved: boolean; pearlDeck: string[]; individualMode: boolean; seenCards: string[];
+  rasm?: RasmState | null; head?: HeadState | null;
 };
 export const GAME_CONFIGS = [
-  { id:'football' as const, name:'Football: Majlis Cup', mode:'Team', players:'2–6 players', time:'2 × 3 min', color:'#78D5C5', icon:'⚽', points:'1 point per goal', penalty:'Hard tackle or kicking the ball away: host may deduct 1 point.', tie:'Golden goal (2 min), then one player each: 10 jumps; highest wins.', win:'Score more goals. The host types goals; Bayti never watches the match.' },
-  { id:'hazawi' as const, name:'Hazawi Riddles', mode:'Team', players:'2–6 players', time:'30 sec · 5 rounds', color:'#F6D477', icon:'🧩', points:'Correct = 2; second-try answer = 1; otherwise 0.', penalty:'Hint costs 1 point.', tie:'One sudden-death riddle.', win:'Teams alternate; the host decides whether the answer is correct.' },
-  { id:'heritage' as const, name:'Heritage Match-Up', mode:'Individual', players:'2–4 players', time:'4 × 4 grid', color:'#CDBBEA', icon:'🦅', points:'1 point per matched pair; match means go again.', penalty:'No penalty for a miss.', tie:'One extra 6-card round.', win:'Find the most heritage pairs.' },
-  { id:'pearl' as const, name:'Pearl Diver', mode:'Individual', players:'2–4 players', time:'3 rounds each', color:'#78D5C5', icon:'🦪', points:'Pearls add 1, 2, 3 or 5; bank any time.', penalty:'Jellyfish loses the whole unbanked turn pile.', tie:'One dive each; highest single card wins.', win:'Bank the most pearls before your turns run out.' },
-  { id:'manners' as const, name:'Majlis Manners', mode:'Team or individual', players:'2–6 players', time:'20 sec · 6 rounds', color:'#F59B7A', icon:'🫖', points:'Best choice = 2 points.', penalty:'No penalty for another answer.', tie:'One bonus scenario.', win:'Discuss together, then host reveals the family choice.' }
+  { id:'football' as const, name:'Football: Majlis Cup', mode:'Team', players:'2–6 players', time:'2 × 3 min', color:'#78D5C5', icon:'⚽', points:'1 point per goal', penalty:'Hard tackle or kicking the ball away: host may deduct 1 point.', tie:'Golden goal (2 min), then one player each: 10 jumps; highest wins.', win:'Score more goals. The host types goals; Bayti never watches the match.', arabic:'', need:'A soft ball, clear indoor space and water bottles.', featured:true },
+  { id:'rasm' as const, name:'Rasm Yalla', arabic:'رسم يلا', mode:'Team', players:'2–6 players', time:'6 turns · 30 sec', color:'#F6D477', icon:'🎨', points:'Correct guess = 2 points, +1 bonus with 10 or more seconds left. Wrong or timeout = 0.', penalty:'Letters, numbers or talking: the host taps Fix score.', tie:'One bonus word per team, repeated until one team leads.', win:'Most points after every turn.', need:'Paper not needed. One phone or laptop, or two windows of the same browser.', featured:true },
+  { id:'head' as const, name:'Khamen on Head', arabic:'خمّن', mode:'Team or individual', players:'2–6 players', time:'60 sec · 5 cards a turn', color:'#A9D9B8', icon:'🤔', points:'Got it = 1 point. Each turn is scored out of 5.', penalty:'Saying, spelling or translating the name: tap Didn’t get it.', tie:'One extra 5-card turn each, repeated until one is ahead.', win:'Highest total across all turns.', need:'Phone or laptop only. Hold it facing the clue-givers.', featured:true },
+  { id:'heritage' as const, name:'Heritage Match-Up', mode:'Individual', players:'2–4 players', time:'4 × 4 grid', color:'#CDBBEA', icon:'🦅', points:'1 point per matched pair; match means go again.', penalty:'No penalty for a miss.', tie:'One extra 6-card round.', win:'Find the most heritage pairs.', arabic:'', need:'Phone or laptop only, flat on a table.', featured:true },
+  { id:'pearl' as const, name:'Pearl Diver', mode:'Individual', players:'2–4 players', time:'3 rounds each', color:'#78D5C5', icon:'🦪', points:'Pearls add 1, 2, 3 or 5; bank any time.', penalty:'Jellyfish loses the whole unbanked turn pile.', tie:'One dive each; highest single card wins.', win:'Bank the most pearls before your turns run out.', arabic:'', need:'Phone or laptop only, passed around.', featured:true },
+  { id:'hazawi' as const, name:'Hazawi Riddles', mode:'Team', players:'2–6 players', time:'30 sec · 5 rounds', color:'#F6D477', icon:'🧩', points:'Correct = 2; second-try answer = 1; otherwise 0.', penalty:'Hint costs 1 point.', tie:'One sudden-death riddle.', win:'Teams alternate; the host decides whether the answer is correct.', arabic:'', need:'Phone or laptop only. The host reads aloud.', featured:false },
+  { id:'manners' as const, name:'Majlis Manners', mode:'Team or individual', players:'2–6 players', time:'20 sec · 6 rounds', color:'#F59B7A', icon:'🫖', points:'Best choice = 2 points.', penalty:'No penalty for another answer.', tie:'One bonus scenario.', win:'Discuss together, then host reveals the family choice.', arabic:'', need:'Phone or laptop only. Sit together in a circle.', featured:false },
 ];
 export const initialGameDay = (): GameDayState => ({
   stage:'choose', game:'football',
@@ -27,7 +32,12 @@ export const initialGameDay = (): GameDayState => ({
 export function gameReducer(s: GameDayState, a: { type:string; [key:string]:any }): GameDayState {
   switch(a.type){
     case 'hydrate': return {...initialGameDay(),...a.state};
-    case 'game': return {...s,game:a.game,stage:'players',rounds:({football:2,hazawi:5,heritage:1,pearl:3,manners:6} as const)[a.game as GameId],roundLength:({football:3,hazawi:30,heritage:0,pearl:30,manners:20} as const)[a.game as GameId],scores:{A:0,B:0},goals:{A:0,B:0},round:1,turn:0,missionIndex:0,cardIndex:0,card:[],flipped:[],matched:[],pearlPile:0,banked:{},resultSaved:false,pearlDeck:[],individualMode:false,notice:'',seenCards:[],paused:false,seconds:0,completedRounds:0,tieStage:0};
+    case 'game': return {...s,game:a.game,stage:'players',rounds:({football:2,hazawi:5,heritage:1,pearl:3,manners:6,rasm:6,head:2} as const)[a.game as GameId],roundLength:({football:3,hazawi:30,heritage:0,pearl:30,manners:20,rasm:30,head:60} as const)[a.game as GameId],scores:{A:0,B:0},goals:{A:0,B:0},round:1,turn:0,missionIndex:0,cardIndex:0,card:[],flipped:[],matched:[],pearlPile:0,banked:{},resultSaved:false,pearlDeck:[],individualMode:false,notice:'',seenCards:[],paused:false,seconds:0,completedRounds:0,tieStage:0,rasm:null,head:null};
+    case 'rasm': return {...s,rasm:a.rasm};
+    case 'head': return {...s,head:a.head};
+    case 'head-tick': return s.head?{...s,head:tickHead(s.head)}:s;
+    case 'head-mark': return s.head?{...s,head:markHeadCard(s.head,a.mark as HeadMark)}:s;
+    case 'custom-results': return {...s,scores:{...a.scores},notice:String(a.notice??''),stage:'results',resultSaved:false};
     case 'stage': return {...s,stage:a.stage};
     case 'players': return {...s,players:a.players};
     case 'config': return {...s,[a.key]:a.value};
@@ -88,7 +98,7 @@ export function gameReducer(s: GameDayState, a: { type:string; [key:string]:any 
       if((s.game==='hazawi'||s.game==='manners'&&!s.individualMode)&&(allScores.A??0)===(allScores.B??0))
         return {...s,stage:'tie',resultSaved:false,notice:s.game==='hazawi'?'Tie · sudden-death riddle.':'Tie · bonus guest scenario.'};
       const players=s.players; const teamA=players.filter(p=>p.team==='A').map(p=>p.name).join(' & ')||'Team A'; const teamB=players.filter(p=>p.team==='B').map(p=>p.name).join(' & ')||'Team B';
-      const winner=s.game==='football'||s.game==='hazawi'||(s.game==='manners'&&!s.individualMode) ? (allScores.A===allScores.B?'A friendly tie':allScores.A>allScores.B?teamA:teamB) : players.reduce((best,p)=>(allScores[p.id]??0)>(allScores[best?.id??'']??-1)?p:best,players[0])?.name??'Everyone';
+      const winner=s.game==='football'||s.game==='hazawi'||s.game==='rasm'||((s.game==='manners'||s.game==='head')&&!s.individualMode) ? (allScores.A===allScores.B?'A friendly tie':allScores.A>allScores.B?teamA:teamB) : players.reduce((best,p)=>(allScores[p.id]??0)>(allScores[best?.id??'']??-1)?p:best,players[0])?.name??'Everyone';
       const points=Object.values(allScores).reduce((x,y)=>x+y,0);
       const result={id:`${Date.now()}-${s.results.length}`,game:s.game,title:GAME_CONFIGS.find(g=>g.id===s.game)?.name??s.game,winner,scores:allScores,points,at:new Date().toISOString()};
       const priorPoints=s.results.reduce((sum,r)=>sum+r.points,0);

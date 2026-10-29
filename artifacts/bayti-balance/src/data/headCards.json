@@ -1,0 +1,254 @@
+[
+ {
+  "id": "landmarks-sheikh-zayed-grand-mosque",
+  "emoji": "🕌",
+  "name": "Sheikh Zayed Grand Mosque",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-louvre-abu-dhabi",
+  "emoji": "🏛️",
+  "name": "Louvre Abu Dhabi",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-qasr-al-watan",
+  "emoji": "🏰",
+  "name": "Qasr Al Watan",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-emirates-palace",
+  "emoji": "🏨",
+  "name": "Emirates Palace",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-etihad-towers",
+  "emoji": "🏙️",
+  "name": "Etihad Towers",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-heritage-village",
+  "emoji": "🏘️",
+  "name": "Heritage Village",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-ferrari-world",
+  "emoji": "🎢",
+  "name": "Ferrari World",
+  "category": "landmarks"
+ },
+ {
+  "id": "landmarks-yas-waterworld",
+  "emoji": "🌊",
+  "name": "Yas Waterworld",
+  "category": "landmarks"
+ },
+ {
+  "id": "malls-yas-mall",
+  "emoji": "🛍️",
+  "name": "Yas Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-marina-mall",
+  "emoji": "🛍️",
+  "name": "Marina Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-al-wahda-mall",
+  "emoji": "🛍️",
+  "name": "Al Wahda Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-the-galleria-al-maryah-island",
+  "emoji": "🛍️",
+  "name": "The Galleria Al Maryah Island",
+  "category": "malls"
+ },
+ {
+  "id": "malls-dalma-mall",
+  "emoji": "🛍️",
+  "name": "Dalma Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-al-ain-mall",
+  "emoji": "🛍️",
+  "name": "Al Ain Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-bawadi-mall",
+  "emoji": "🛍️",
+  "name": "Bawadi Mall",
+  "category": "malls"
+ },
+ {
+  "id": "malls-al-jimi-mall",
+  "emoji": "🛍️",
+  "name": "Al Jimi Mall",
+  "category": "malls"
+ },
+ {
+  "id": "parks-abu-dhabi-corniche",
+  "emoji": "🌅",
+  "name": "Abu Dhabi Corniche",
+  "category": "parks"
+ },
+ {
+  "id": "parks-umm-al-emarat-park",
+  "emoji": "🌳",
+  "name": "Umm Al Emarat Park",
+  "category": "parks"
+ },
+ {
+  "id": "parks-khalifa-park",
+  "emoji": "🌳",
+  "name": "Khalifa Park",
+  "category": "parks"
+ },
+ {
+  "id": "parks-saadiyat-beach",
+  "emoji": "🏖️",
+  "name": "Saadiyat Beach",
+  "category": "parks"
+ },
+ {
+  "id": "parks-yas-beach",
+  "emoji": "🏖️",
+  "name": "Yas Beach",
+  "category": "parks"
+ },
+ {
+  "id": "parks-mangrove-national-park",
+  "emoji": "🌿",
+  "name": "Mangrove National Park",
+  "category": "parks"
+ },
+ {
+  "id": "parks-al-ain-green-mubazzarah",
+  "emoji": "🌲",
+  "name": "Al Ain Green Mubazzarah",
+  "category": "parks"
+ },
+ {
+  "id": "alain-al-ain-oasis",
+  "emoji": "🌴",
+  "name": "Al Ain Oasis",
+  "category": "alain"
+ },
+ {
+  "id": "alain-jebel-hafeet",
+  "emoji": "⛰️",
+  "name": "Jebel Hafeet",
+  "category": "alain"
+ },
+ {
+  "id": "alain-al-ain-zoo",
+  "emoji": "🦁",
+  "name": "Al Ain Zoo",
+  "category": "alain"
+ },
+ {
+  "id": "alain-al-jahili-fort",
+  "emoji": "🏰",
+  "name": "Al Jahili Fort",
+  "category": "alain"
+ },
+ {
+  "id": "alain-hili-archaeological-park",
+  "emoji": "🏺",
+  "name": "Hili Archaeological Park",
+  "category": "alain"
+ },
+ {
+  "id": "alain-al-ain-palace-museum",
+  "emoji": "🏛️",
+  "name": "Al Ain Palace Museum",
+  "category": "alain"
+ },
+ {
+  "id": "alain-qasr-al-muwaiji",
+  "emoji": "🏰",
+  "name": "Qasr Al Muwaiji",
+  "category": "alain"
+ },
+ {
+  "id": "animals-arabian-oryx",
+  "emoji": "🦌",
+  "name": "Arabian oryx",
+  "category": "animals"
+ },
+ {
+  "id": "animals-falcon",
+  "emoji": "🦅",
+  "name": "Falcon",
+  "category": "animals"
+ },
+ {
+  "id": "animals-camel",
+  "emoji": "🐪",
+  "name": "Camel",
+  "category": "animals"
+ },
+ {
+  "id": "animals-arabian-gazelle",
+  "emoji": "🦌",
+  "name": "Arabian gazelle",
+  "category": "animals"
+ },
+ {
+  "id": "animals-flamingo",
+  "emoji": "🦩",
+  "name": "Flamingo",
+  "category": "animals"
+ },
+ {
+  "id": "animals-dugong",
+  "emoji": "🌊",
+  "name": "Dugong",
+  "category": "animals"
+ },
+ {
+  "id": "animals-dolphin",
+  "emoji": "🐬",
+  "name": "Dolphin",
+  "category": "animals"
+ },
+ {
+  "id": "animals-arabian-horse",
+  "emoji": "🐎",
+  "name": "Arabian horse",
+  "category": "animals"
+ },
+ {
+  "id": "animals-hawksbill-turtle",
+  "emoji": "🐢",
+  "name": "Hawksbill turtle",
+  "category": "animals"
+ },
+ {
+  "id": "animals-sand-cat",
+  "emoji": "🐱",
+  "name": "Sand cat",
+  "category": "animals"
+ },
+ {
+  "id": "animals-desert-fox",
+  "emoji": "🦊",
+  "name": "Desert fox",
+  "category": "animals"
+ },
+ {
+  "id": "animals-hammour-fish",
+  "emoji": "🐟",
+  "name": "Hammour fish",
+  "category": "animals"
+ }
+]

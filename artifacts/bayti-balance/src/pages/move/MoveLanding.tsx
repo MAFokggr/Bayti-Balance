@@ -1,10 +1,9 @@
 import { Link } from 'wouter';
-import { Users, Dumbbell, Rabbit, MapPinned, ArrowRight, Camera } from 'lucide-react';
+import { Users, Rabbit, MapPinned, ArrowRight, Camera } from 'lucide-react';
 import { MoveHeader, OasisScene, isHot, type MoveCtx } from '@/components/move/kit';
 
 const CARDS = [
   { href: '/move/oasis', title: 'Parent and child', sub: 'Build the Oasis together, one turn each.', Icon: Users, bg: '#78D5C5', id: 'oasis' },
-  { href: '/move/gym', title: 'Gym and walking', sub: 'A gentle weekly plan, walks and sports.', Icon: Dumbbell, bg: '#F59B7A', id: 'gym' },
   { href: '/move/games', title: 'Kids games', sub: 'Rabbit Jump Quest and Star Rope.', Icon: Rabbit, bg: '#F6D477', id: 'games' },
   { href: '/move/trip', title: 'Plan an activity', sub: 'An Abu Dhabi family outing on a map.', Icon: MapPinned, bg: '#CDBBEA', id: 'trip' },
 ];
