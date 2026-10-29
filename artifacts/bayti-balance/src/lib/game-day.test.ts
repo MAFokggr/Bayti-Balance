@@ -12,9 +12,29 @@ function storage(seed: Record<string,string> = {}) {
   };
 }
 
-test('game configs cover the five requested reusable engine games',()=>{
-  assert.deepEqual(GAME_CONFIGS.map(g=>g.id),['football','hazawi','heritage','pearl','manners']);
+test('game configs keep the five featured games separate from More games',()=>{
+  assert.deepEqual(GAME_CONFIGS.filter(g=>g.featured).map(g=>g.id),['football','rasm','head','heritage','pearl']);
+  assert.deepEqual(GAME_CONFIGS.filter(g=>!g.featured).map(g=>g.id),['hazawi','manners']);
   assert.equal(GAME_CONFIGS[0].mode,'Team');
+});
+test('every visible game card selects its own persisted setup',()=>{
+  for(const game of GAME_CONFIGS){
+    const selected=gameReducer(initialGameDay(),{type:'game',game:game.id});
+    assert.equal(selected.game,game.id);
+    assert.equal(selected.stage,'players');
+    assert.equal(loadGameDay(storage({[GAME_DAY_KEY]:JSON.stringify(selected)})).game,game.id);
+  }
+});
+test('custom Rasm and Khamen scores save once into the shared results and Oasis tally',()=>{
+  for(const [game,scores] of [['rasm',{A:5,B:2}],['head',{A:4,B:1}]] as const){
+    let state=gameReducer(initialGameDay(),{type:'game',game});
+    state=gameReducer(state,{type:'custom-results',scores,notice:'Winner'});
+    state=gameReducer(state,{type:'finish'});
+    assert.equal(state.resultSaved,true);
+    assert.equal(state.results[0].game,game);
+    assert.deepEqual(state.results[0].scores,scores);
+    assert.equal(gameReducer(state,{type:'finish'}).results.length,1);
+  }
 });
 test('game setup defaults, scoring and pauseable timer reduce predictably',()=>{
   let s=gameReducer(initialGameDay(),{type:'game',game:'football'});

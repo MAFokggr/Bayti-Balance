@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'wouter';
-import { ArrowRight, Droplets, Eraser, ExternalLink, Eye, EyeOff, MonitorSmartphone, Smartphone, Undo2, Wifi, WifiOff } from 'lucide-react';
+import { ArrowRight, Droplets, Eraser, ExternalLink, Eye, EyeOff, MonitorSmartphone, RotateCcw, Smartphone, Undo2, Wifi, WifiOff } from 'lucide-react';
 import type { GameDayState, Player } from '@/lib/game-day';
 import { dispatchGameDay, getGameDayState } from '@/lib/game-day-store';
 import {
@@ -78,6 +78,7 @@ export function RasmPlay({ s }: { s: GameDayState }) {
   const [lastSeen, setLastSeen] = useState(0);
   const [now, setNow] = useState(() => Date.now());
   const [popupNote, setPopupNote] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
   const link = useRef<RasmLink | null>(null);
   const secondsRef = useRef(0); secondsRef.current = seconds;
   const liveRef = useRef(live); liveRef.current = live;
@@ -97,7 +98,9 @@ export function RasmPlay({ s }: { s: GameDayState }) {
   }, []);
   const finishDraw = useCallback(() => {
     const st = getGameDayState().rasm; if (!st || st.phase !== 'draw') return;
-    dispatchGameDay({ type: 'rasm', rasm: { ...st, phase: st.screenMode === 'windows' ? 'guess' : 'pass', current: { ...st.current, strokes: liveRef.current } } });
+    const phase = st.screenMode === 'windows' ? 'guess' : 'pass';
+    const nextSeconds = phase === 'guess' ? GUESS_SECONDS : 0;
+    dispatchGameDay({ type: 'rasm', rasm: { ...st, phase, current: { ...st.current, strokes: liveRef.current, secondsLeft: nextSeconds } } });
   }, []);
   const onExpire = useRef((_: string) => {});
   onExpire.current = (phase: string) => {
@@ -108,15 +111,33 @@ export function RasmPlay({ s }: { s: GameDayState }) {
 
   // Fresh canvas each turn.
   useEffect(() => { setLive(getGameDayState().rasm?.current.strokes ?? []); setReplayDone(false); }, [turn.index]);
+  useEffect(() => {
+    if (r.phase !== 'draw') return;
+    const timeout = window.setTimeout(() => {
+      const state = getGameDayState().rasm;
+      if (!state || state.phase !== 'draw' || state.current.index !== turn.index) return;
+      dispatchGameDay({ type: 'rasm', rasm: { ...state, current: { ...state.current, strokes: live } } });
+    }, 160);
+    return () => window.clearTimeout(timeout);
+  }, [live, r.phase, turn.index]);
 
   // Phase timers (reveal 3s, draw 30s, guess 20s after replay).
   useEffect(() => {
     const ph = r.phase;
-    const start = ph === 'reveal' ? REVEAL_SECONDS : ph === 'draw' ? DRAW_SECONDS : ph === 'guess' && (windows || replayDone) ? GUESS_SECONDS : 0;
+    const defaultSeconds = ph === 'reveal' ? REVEAL_SECONDS : ph === 'draw' ? DRAW_SECONDS : ph === 'guess' && (windows || replayDone) ? GUESS_SECONDS : 0;
+    const start = defaultSeconds ? (turn.secondsLeft > 0 ? Math.min(defaultSeconds, turn.secondsLeft) : defaultSeconds) : 0;
     setSeconds(start); secondsRef.current = start;
     if (!start) return;
+    const persistSeconds = (secondsLeft: number) => {
+      const state = getGameDayState().rasm;
+      if (!state || state.phase !== ph || state.current.index !== turn.index) return;
+      if (state.current.secondsLeft !== secondsLeft) {
+        dispatchGameDay({ type: 'rasm', rasm: { ...state, current: { ...state.current, secondsLeft } } });
+      }
+    };
+    persistSeconds(start);
     let left = start;
-    const id = window.setInterval(() => { left -= 1; secondsRef.current = left; setSeconds(left); if (left <= 0) { window.clearInterval(id); onExpire.current(ph); } }, 1000);
+    const id = window.setInterval(() => { left -= 1; secondsRef.current = left; setSeconds(left); persistSeconds(left); if (left <= 0) { window.clearInterval(id); onExpire.current(ph); } }, 1000);
     return () => window.clearInterval(id);
   }, [r.phase, turn.index, replayDone, windows]);
 
@@ -157,6 +178,11 @@ export function RasmPlay({ s }: { s: GameDayState }) {
     dispatchGameDay({ type: 'custom-results', scores: teams.length < 2 ? { [teams[0]]: t[teams[0]] } : { A: t.A, B: t.B }, notice });
     if (location.startsWith('/sketch')) go('/game-day');
   };
+  const reset = () => {
+    link.current?.post({ type: 'done', summary: 'The host restarted this Rasm Yalla game.' });
+    dispatchGameDay({ type: 'game', game: 'rasm' });
+    if (location.startsWith('/sketch')) go('/game-day');
+  };
 
   if (!word) return <div className="gd-card gd-error" role="alert">This word card is missing. <button className="sl-btn sl-btn-sm" onClick={() => dispatchGameDay({ type: 'stage', stage: 'ready' })}>Set up again</button></div>;
 
@@ -168,6 +194,13 @@ export function RasmPlay({ s }: { s: GameDayState }) {
       <span className="gd-badge">{turnLabel}</span>
       {windows && <span className={`gd-chip ${connected ? 'ok' : ''}`} data-testid="status-guesser-link">{connected ? <Wifi size={12} /> : <WifiOff size={12} />}{connected ? 'Connected' : 'Waiting'}</span>}
     </div>
+    {confirmReset
+      ? <div className="gd-card gd-reset-confirm" role="alertdialog" aria-label="Restart Rasm Yalla">
+        <p>This restarts the active game. Previously saved scores stay saved.</p>
+        <button className="sl-btn sl-btn-sm" onClick={reset} data-testid="button-confirm-reset-rasm">Restart game</button>
+        <button className="sl-btn sl-btn-sm sl-btn-ghost" onClick={() => setConfirmReset(false)} data-testid="button-cancel-reset-rasm">Keep playing</button>
+      </div>
+      : <button className="sl-btn sl-btn-sm sl-btn-ghost" onClick={() => setConfirmReset(true)} data-testid="button-reset-rasm"><RotateCcw size={14} /> Reset game</button>}
     {windows && <div className="gd-card gd-tight">
       <button className="sl-btn sl-btn-sm sl-btn-soft" onClick={openGuesser} data-testid="button-open-guesser"><ExternalLink size={14} /> Open guesser screen</button>
       <p className="gd-muted" style={{ margin: '6px 0 0' }}>{popupNote || 'Opens a second window on this browser. Scores stay on this host window.'}</p>
@@ -177,7 +210,7 @@ export function RasmPlay({ s }: { s: GameDayState }) {
       <EyeOff size={26} />
       <h2>Team {turn.team}: {drawer} draws, {guesser} guesses.</h2>
       <p><b>Drawer only, look now!</b> {guesser}, please look away.</p>
-      <button className="sl-btn sl-full" onClick={() => update({ ...cur(), phase: 'reveal' })} data-testid="button-rasm-show-word">I’m {drawer}, show my word <Eye size={16} /></button>
+      <button className="sl-btn sl-full" onClick={() => update({ ...cur(), phase: 'reveal', current: { ...cur().current, secondsLeft: REVEAL_SECONDS } })} data-testid="button-rasm-show-word">I’m {drawer}, show my word <Eye size={16} /></button>
     </div>}
 
     {r.phase === 'reveal' && <div className="gd-secret" data-testid="rasm-secret-word">
@@ -204,7 +237,7 @@ export function RasmPlay({ s }: { s: GameDayState }) {
       <Smartphone size={26} />
       <h2>Pass the screen to {guesser}.</h2>
       <p>{drawer}, no hints now. {guesser}: watch the replay, then choose fast. 20 seconds.</p>
-      <button className="sl-btn sl-full" onClick={() => update({ ...cur(), phase: 'guess' })} data-testid="button-rasm-show-drawing">I’m {guesser}, show the drawing <ArrowRight size={16} /></button>
+      <button className="sl-btn sl-full" onClick={() => update({ ...cur(), phase: 'guess', current: { ...cur().current, secondsLeft: GUESS_SECONDS } })} data-testid="button-rasm-show-drawing">I’m {guesser}, show the drawing <ArrowRight size={16} /></button>
     </div>}
 
     {r.phase === 'guess' && <>
@@ -226,6 +259,6 @@ export function RasmPlay({ s }: { s: GameDayState }) {
       <button className="sl-btn sl-full" style={{ marginTop: 12 }} onClick={next} data-testid="button-rasm-next-turn">Next turn <ArrowRight size={16} /></button>
     </div>}
 
-    {turn.index >= 3 && <div className="gd-water" role="status" style={{ marginTop: 12 }}><Droplets size={15} /> Water break after round 3. Sip, then Yalla!</div>}
+    {turn.index >= 5 && <div className="gd-water" role="status" style={{ marginTop: 12 }}><Droplets size={15} /> Water break after round 3. Sip, then Yalla!</div>}
   </section>;
 }

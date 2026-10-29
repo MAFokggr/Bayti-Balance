@@ -59,11 +59,12 @@ export function activeTeams(players: Player[]): Team[] {
 }
 /** Each playing team needs two different people: one draws, a teammate guesses. */
 export function validateRasmTeams(players: Player[]): string | null {
-  if (players.length < RASM_MIN_PLAYERS) return 'Add at least 2 players.';
+  if (players.length < 4) return 'Rasm Yalla needs at least 4 players: two on each team so the drawer and guesser are teammates.';
   if (players.length > RASM_MAX_PLAYERS) return 'Rasm Yalla is for up to 6 players.';
   const r = teamRoster(players);
+  if (activeTeams(players).length !== 2) return 'Assign players to both Team A and Team B.';
   for (const t of ['A', 'B'] as Team[]) {
-    if (r[t].length === 1) return `Team ${t} has only ${r[t][0].name}. The drawer and guesser must be two people on the same team, so add a teammate or move ${r[t][0].name}.`;
+    if (r[t].length < 2) return `Team ${t} needs at least two players. The drawer and guesser must be different teammates.`;
   }
   return null;
 }

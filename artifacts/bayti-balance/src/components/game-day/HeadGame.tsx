@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Check, Droplets, Pause, Play, Square, X } from 'lucide-react';
+import { ArrowRight, Check, Droplets, Pause, Play, RotateCcw, Square, X } from 'lucide-react';
 import { GAME_CONFIGS, type GameDayState, type Player } from '@/lib/game-day';
 import { dispatchGameDay, getGameDayState } from '@/lib/game-day-store';
 import {
@@ -56,6 +56,7 @@ export function HeadPlay({ s }: { s: GameDayState }) {
   const h = s.head!;
   const players: Player[] = s.players;
   const [count, setCount] = useState(0);
+  const [confirmReset, setConfirmReset] = useState(false);
   const t = h.current;
   const who = participantLabel(t.who, players);
   const guesser = players.find(p => p.id === t.guesser)?.name ?? who;
@@ -95,8 +96,19 @@ export function HeadPlay({ s }: { s: GameDayState }) {
     dispatchGameDay({ type: 'custom-results', scores: final, notice: `${participantLabel(leader, players)} wins Khamen on Head` });
   };
   const turnLabel = t.tieRound ? `Tie-break turn · round ${t.tieRound}` : `Turn ${t.index + 1} of ${parts.length * h.turnsEach}`;
+  const reset = () => {
+    dispatchGameDay({ type: 'game', game: 'head' });
+    setConfirmReset(false);
+  };
 
   return <section className="gd-head" data-testid="head-play">
+    {confirmReset
+      ? <div className="gd-card gd-reset-confirm" role="alertdialog" aria-label="Restart Khamen on Head">
+        <p>This restarts the active game. Previously saved scores stay saved.</p>
+        <button className="sl-btn sl-btn-sm" onClick={reset} data-testid="button-confirm-reset-head">Restart game</button>
+        <button className="sl-btn sl-btn-sm sl-btn-ghost" onClick={() => setConfirmReset(false)} data-testid="button-cancel-reset-head">Keep playing</button>
+      </div>
+      : <button className="sl-btn sl-btn-sm sl-btn-ghost" onClick={() => setConfirmReset(true)} data-testid="button-reset-head"><RotateCcw size={14} /> Reset game</button>}
     <div className="gd-scorebar">{parts.map(p => <span key={p} className={t.who === p ? 'on' : ''}>{participantLabel(p, players)}<b data-testid={`text-head-total-${p}`}>{totals[p] ?? 0}/{Math.max(1, turnsDone(p)) * CARDS_PER_TURN}</b></span>)}</div>
     <div className="sl-between" style={{ margin: '10px 0' }}><span className="gd-badge">{category?.emoji} {category?.name}</span><span className="gd-badge">{turnLabel}</span></div>
 
@@ -129,6 +141,6 @@ export function HeadPlay({ s }: { s: GameDayState }) {
       <button className="sl-btn sl-full" onClick={next} data-testid="button-head-next-turn">Next turn <ArrowRight size={16} /></button>
     </div>}
 
-    {t.index >= 3 && <div className="gd-water" role="status" style={{ marginTop: 12 }}><Droplets size={15} /> Water break after round 3. Sip, then Yalla!</div>}
+    {t.index >= Math.max(0, parts.length * 3 - 1) && <div className="gd-water" role="status" style={{ marginTop: 12 }}><Droplets size={15} /> Water break after round 3. Sip, then Yalla!</div>}
   </section>;
 }
