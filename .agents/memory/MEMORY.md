@@ -1,2 +1,3 @@
 - [Camera verification](camera-verification.md) — distinguish interactive startup, synthetic webcam checks, and physical-device validation.
 - [Prototype constraints](prototype-constraints.md) — one shared family plan, age-specific views, local data, explicit Demo labels, and preservation of earlier stages.
+- [Family Game Day scope](family-game-day.md) — local-only, human-hosted games with static AI-made cards; preserve wellness features and isolate resets.

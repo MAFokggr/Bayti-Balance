@@ -7,7 +7,7 @@ Use one shared family plan with personalized versions for its members. Children 
 
 Preserve earlier parts, especially the camera core, as new layers are added. Keep prototype data in localStorage. Clearly label simulations as Demo rather than implying real image recognition, a language model, or live communication.
 
-Use Nunito Sans and Lucide icons, with no emojis, music, sound, or audio.
+Use Nunito Sans and Lucide icons, with no music, sound, or audio. Avoid emojis outside Family Game Day card/game artwork, where the user explicitly allowed them.
 
 **Why:** These are the user's global rules for the staged, one-day student prototype, repeated in the continuation brief.
 
